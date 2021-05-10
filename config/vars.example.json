@@ -1,0 +1,7 @@
+{    
+    "threshold": 5,
+    "liquidityWallet": "",
+    "communityWallet": "",
+    "advisorWallet": "",
+    "batchSize": 50
+}

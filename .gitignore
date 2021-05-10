@@ -1,0 +1,6 @@
+node_modules
+build/
+truffle.js
+.idea/
+.env
+config/vars.json
