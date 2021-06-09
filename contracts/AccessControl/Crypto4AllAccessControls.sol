@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.6.0;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
@@ -36,7 +36,7 @@ contract Crypto4AllAccessControls is AccessControl {
     /**
      * @notice The deployer is automatically given the admin role which will allow them to then grant roles to other addresses
      */
-    constructor() public {
+    constructor() {
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
     /////////////

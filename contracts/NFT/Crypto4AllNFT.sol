@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.6.0;
+pragma solidity ^0.8.0;
 
 import "../AccessControl/Crypto4AllAccessControls.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
 /**
  * @title Crypto4All  NFT
  * @dev Issues ERC-721 tokens 
  */
-contract Crypto4AllNFT is ERC721("Crypto4All NFT", "CFAN") {
+contract Crypto4AllNFT is ERC721URIStorage {
 
     // @notice event emitted upon construction of this contract, used to bootstrap external indexers
     event Crypto4AllNFTContractDeployed();
@@ -34,7 +33,7 @@ contract Crypto4AllNFT is ERC721("Crypto4All NFT", "CFAN") {
      @notice Constructor
      @param _accessControls Address of the Crypto4AllNFT access control contract
      */
-    constructor(Crypto4AllAccessControls _accessControls) public {
+    constructor(Crypto4AllAccessControls _accessControls) ERC721("Crypto4All NFT", "CFAN") {
         accessControls = _accessControls;
         emit Crypto4AllNFTContractDeployed();
     }
@@ -55,7 +54,7 @@ contract Crypto4AllNFT is ERC721("Crypto4All NFT", "CFAN") {
         // Valid args
         _assertMintingParamsValid(_tokenUri, _postCreator);
 
-        tokenIdPointer = tokenIdPointer.add(1);
+        tokenIdPointer = tokenIdPointer + 1;
         uint256 tokenId = tokenIdPointer;
 
         // Mint token and set token URI
