@@ -3,13 +3,13 @@
 pragma solidity ^0.8.0;
 
 import "../AccessControl/Crypto4AllAccessControls.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "./NFT.sol";
 
 /**
  * @title Crypto4All  NFT
  * @dev Issues ERC-721 tokens 
  */
-contract Crypto4AllNFT is ERC721URIStorage {
+contract Crypto4AllNFT is ERC721 {
 
     // @notice event emitted upon construction of this contract, used to bootstrap external indexers
     event Crypto4AllNFTContractDeployed();
@@ -67,6 +67,37 @@ contract Crypto4AllNFT is ERC721URIStorage {
     }
 
     /**
+     @notice Mints a Crypto4AllNFT AND when minting to a contract checks if the beneficiary is a 721 compatible
+     @dev Only senders with either the admin or mintor role can invoke this method
+     @param _beneficiary Recipient of the NFT
+     @param _tokenUris URI for the token being minted
+     @param _postCreator NFT Creator - will be required for issuing royalties from secondary sales
+     */
+    function mintMany(address _beneficiary, string[] calldata _tokenUris, address _postCreator) external{
+        require(
+            accessControls.hasAdminRole(_msgSender()) || accessControls.hasMinterRole(_msgSender()),
+            "Crypto4AllNFT.mint: Sender must have the admin or minter role"
+        );
+        uint256 count = _tokenUris.length;
+
+        // Valid args
+        for(uint256 i = 0; i < count; i++ ) {
+            _assertMintingParamsValid(_tokenUris[i], _postCreator);
+        }
+        
+        uint256 fromTokenId = tokenIdPointer + 1;
+        tokenIdPointer = tokenIdPointer + count;
+        uint256 toTokenId = tokenIdPointer;
+
+        // Mint token and set token URI
+        _safeMintMany(_beneficiary, fromTokenId, toTokenId);
+        
+        for(uint256 i = 0; i < count; i++ ) {
+            _setTokenURI(fromTokenId + i, _tokenUris[i]);
+            postCreators[fromTokenId + i] = _postCreator;
+        }
+    }
+    /**
      @notice Burns a Crypto4AllNFT
      @dev Only the owner or an approved sender can call this method
      @param _tokenId the token ID to burn
@@ -78,7 +109,7 @@ contract Crypto4AllNFT is ERC721URIStorage {
             "Crypto4AllNFT.burn: Only garment owner or approved"
         );
         // Destroy token mappings
-        _burn(_tokenId);
+        _burn(_tokenId, _tokenId);
 
         delete postCreators[_tokenId];
     }
