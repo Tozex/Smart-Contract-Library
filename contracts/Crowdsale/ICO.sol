@@ -1,11 +1,11 @@
 pragma solidity ^0.8.1;
 
-import "../lib/ERC20/TokenContract.sol";
 import "../OpenZeppelin/SafeMath.sol";
-import "../OpenZeppelin/PullPayment.sol";
 import "../OpenZeppelin/Ownable.sol";
+import "../OpenZeppelin/Pausable.sol";
+import "../OpenZeppelin/SafeERC20.sol";
 
-import "IERC20.sol";
+import "../Token/ERC20/IERC20.sol";
 
 
 // SPDX-License-Identifier: GPL-3.0
@@ -24,331 +24,201 @@ import "IERC20.sol";
  * behavior.
  */
 
-contract ICO is PullPayment, Ownable {
+contract ICO is  Ownable, Pausable {
 
   using SafeMath for uint256;
+  using SafeERC20 for IERC20;
+  
+  struct UserDetail {
+    uint256 depositAmount;
+    uint256 totalRewardAmount;
+    uint256 withdrawAmount;   
+  }
 
   // The token being sold
-  TokenContract public token;
+  IERC20 public immutable token;
 
+  // Dai token.
+  IERC20 public immutable daiToken;
   // Decimals vlaue of the token
-  uint256 TokenDecimals;
+  uint256 tokenDecimals;
 
   // Address where funds are collected
-  address payable public wallet;
-
-  // Address to receive project tokens
-  address public projectOwner;
-
-  // Refund period if the ICO failed
-  uint256 public refundPeriod;
-
-  // How many token units a buyer gets per ETH/wei during Pre sale. The ETH price is fixed at 400$ during Pre sale.
-  uint256 public Presalerate = 0.00025 ether;   //  1 DCASH Token = 0.10 $ = 0.00025 Ether
+  address public wallet;
 
   // How many token units a buyer gets per ETH/wei during ICO. The ETH price is fixed at 400$ during the ICO to guarantee the 30 % discount rate with the presale rate
-  uint256 public Icorate = 0.000325 ether;    //  1 DCASH Token = 0.13 $ = 0.000325 Ether
+  uint256 public icoRate;    //  1 DCASH Token = 10 DAI
 
-  // Amount of ETH/Wei raised during the ICO period
-  uint256 public EthRaisedIco;
+  // Amount of Dai raised during the ICO period
+  uint256 public totalDepositAmount;
 
-  // Amount of ETH/wei raised during the Pre sale
-  uint256 public EthRaisedpresale;
+  uint256 private pendingTokenToSend;
 
-  // Token amount distributed during the ICO period
-  uint256 public tokenDistributed;
-
-  // Token amount distributed during the Pre sale
-  uint256 public tokenDistributedpresale;
-
-  // investors part according to the whitepaper 60 % (50% ICO + 10% PreSale)
-  uint256 public investors = 60;
-
-  // Min purchase size of incoming ETH during pre sale period fixed at 2 ETH valued at 800 $
-  uint256 public constant MIN_PURCHASE_Presale = 2 ether;
-
-  // Minimum purchase size of incoming ETH during ICO at 1$
-  uint256 public constant MIN_PURCHASE_ICO = 0.0025 ether;
-
-  // Hardcap cap in Ether raised during Pre sale fixed at $ 200 000 for ETH valued at 440$
-  uint256 public PresaleSalemaxCap1 = 500 ether;
-
-  // Softcap funding goal during ICO in Ether raised fixed at $ 200 000 for ETH valued at 400$.
-  uint256 public ICOminCap = 500 ether;
+  // Minimum purchase size of incoming Dai token = 10$.
+  uint256 public constant minPurchaseIco = 10 * 1e18;
 
   // Hardcap goal in Ether during ICO in Ether raised fixed at $ 13 000 000 for ETH valued at 400$
-  uint256 public ICOmaxCap = 32500 ether;
+  uint256 public icoMaxCap;
 
-  // presale start/end
-  bool public presale = true;    // State of the ongoing sales Pre sale
+  // Unlock time stamp.
+  uint256 public unlockTime;
 
+  // The percent that unlocked after unlocktime. 10%
+  uint256 private firstUnlockPercent = 10; 
+
+  // The percent that unlocked weekly. 20%
+  uint256 private weeklyUnlockPercent = 20; 
+
+  // 1 week as a timestamp.
+  uint256 private oneWeek = 604800;
+  
   // ICO start/end
   bool public ico = false;         // State of the ongoing sales ICO period
 
-  // Balances in incoming Ether
-  mapping(address => uint256) balances;
+  // User deposit Dai amount
+  mapping(address => UserDetail) public userDetails;
 
-  // Bool to check that the Presalesale period is launch only one time
-  bool public statepresale = false;
-
-  // Bool to check that the ico is launch only one time
-  bool public stateico = true;
-
-  /**
-   * Event for token purchase logging
-   * @param purchaser who paid for the tokens
-   * @param beneficiary who got the tokens
-   * @param value weis paid for purchase
-   * @param amount amount of tokens purchased
-   */
-  event TokenPurchase(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
-  event NewContract(address indexed _from, address indexed _contract, string _type);
-
+  event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
+  event ClaimTokens(address indexed user, uint256 amount);
   /**
    * @param _wallet Address where collected funds will be forwarded to
-   * @param _token Address of the ERC20 Token
-   * @param _project Address where the Token of the project will be sent
+   * @param _daiToken Address of Dai token
+   * @param _token Address of reward token
+   * @param _tokenDecimals The decimal of reward token
+   * @param _icoRate How many token units a buy get per Dai token.
    */
-  constructor(address payable _wallet, address _token, uint256 _TokenDecimals, address _project) {
-    require(_wallet != address(0) && _token != address(0) && _project != address(0));
+  constructor(
+    address _wallet,
+    IERC20 _daiToken,
+    IERC20 _token, 
+    uint256 _tokenDecimals,
+    uint256 _icoMaxCap,
+    uint256 _icoRate
+  ) {
+    require(address(_daiToken) != address(0) && _wallet != address(0) && address(_token) != address(0));
+    daiToken = _daiToken;
     wallet = _wallet;
-    token = TokenContract(_token);
-    projectOwner = _project;
-    TokenDecimals = _TokenDecimals;
-
+    token = _token;
+    tokenDecimals = _tokenDecimals;
+    icoMaxCap = _icoMaxCap;
+    icoRate = _icoRate;
+    // start ico
+    ico = true;
   }
 
   // -----------------------------------------
   // ICO external interface
   // -----------------------------------------
 
-  /**
-   * @dev fallback function ***DO NOT OVERRIDE***
-   */
-  receive() external payable {
-    require(presale || ico , "Failed it was already closed");
-     if (presale) {
-      buypresaleTokens(msg.sender);
-    }
-
-    if (ico) {
-      buyICOTokens(msg.sender);
-    }
-  }
-
-  function buypresaleTokens (address _beneficiary) internal {
-    require(_beneficiary != address(0) , "Failed the wallet is not allowed");
-    require(msg.value >= MIN_PURCHASE_Presale, "Failed the amount is not respecting the minimum deposit of Presale ");
-    // Check that if investors sends more than the MIN_PURCHASE_Presale
-    uint256 weiAmount = msg.value;
-	// According to the whitepaper the backers who invested on Presale Sale have not possibilities to be refunded. Their ETH Balance is updated to zero value.
-	balances[msg.sender] = 0;
-    // calculate token amount to be created
-    uint256 tokensTocreate = _getTokenpresaleAmount(weiAmount);
-    _getRemainingTokenStock(_beneficiary, tokensTocreate);
-    emit TokenPurchase(msg.sender, _beneficiary, weiAmount, tokensTocreate);
-
-    // update state
-    EthRaisedpresale = EthRaisedpresale.add(weiAmount);
-    tokenDistributedpresale = tokenDistributedpresale.add(tokensTocreate);
-
-    // If Presale Sale softcap is reached then the ether on the ICO contract are send to project wallet
-    if (EthRaisedpresale <= PresaleSalemaxCap1) {
-      wallet.transfer(address(this).balance);
-    } else {
-      //If PresaleSalemaxCap1 is reached then the presale is closed
-      if (EthRaisedpresale >= PresaleSalemaxCap1) {
-        presale = false;
-      }
-    }
-  }
 
   /**
    * @dev low level token purchase ***DO NOT OVERRIDE***
-   * @param _beneficiary Address performing the token purchase
+   * @param _daiAmount Dai token amount
    */
-  function buyICOTokens(address _beneficiary) internal {
-	require(_beneficiary != address(0) , "Failed the wallet is not allowed");
-    require(msg.value >= MIN_PURCHASE_ICO, "Failed the amount is not respecting the minimum deposit of ICO");
-    // Check that if investors sends more than the MIN_PURCHASE_ICO
-    uint256 weiAmount = msg.value;
+  function buyTokens(uint256 _daiAmount) external whenNotPaused {
+    require(ico, "ICO.buyTokens: ICO is already finished.");
+    require(_daiAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
 
-    // calculate token amount to be created
-    uint256 tokensTocreate = _getTokenAmount(weiAmount);
+    if(totalDepositAmount.add(_daiAmount) > icoMaxCap) {
+      _daiAmount = icoMaxCap.sub(totalDepositAmount);
+    }    
 
-    // Look if there is token on the contract if he is not create the amount of token
-    _getRemainingTokenStock(_beneficiary, tokensTocreate);
-    emit TokenPurchase(msg.sender, _beneficiary, weiAmount, tokensTocreate);
+    uint256 tokenAmount = _getTokenAmount(_daiAmount);
 
-    // update state
-    EthRaisedIco = EthRaisedIco.add(weiAmount);
+    require(token.balanceOf(address(this)).sub(pendingTokenToSend) >= tokenAmount, "ICO.buyTokens: not enough token to send");
 
-    // Creation of the token and transfer to beneficiary
-    tokenDistributed = tokenDistributed.add(tokensTocreate);
+    daiToken.transferFrom(msg.sender, wallet, _daiAmount);
 
-    // Update the balance of benificiary
-    balances[_beneficiary] = balances[_beneficiary].add(weiAmount);
+    totalDepositAmount = totalDepositAmount.add(_daiAmount);
 
-    uint256 totalEthRaised = EthRaisedIco.add(EthRaisedpresale);
+    pendingTokenToSend = pendingTokenToSend.add(tokenAmount);
 
-    // If ICOminCap is reached then the ether on the ICO contract are send to project wallet
-    if (totalEthRaised >= ICOminCap && totalEthRaised <= ICOmaxCap) {
-      wallet.transfer(address(this).balance);
-    }
+    UserDetail storage userDetail = userDetails[msg.sender];
+    userDetail.depositAmount = userDetail.depositAmount.add(_daiAmount);
+    userDetail.totalRewardAmount = userDetail.totalRewardAmount.add(tokenAmount);
 
-    //If ICOmaxCap is reached then the ICO close
-    if (totalEthRaised >= ICOmaxCap) {
+    emit TokenPurchase(msg.sender, _daiAmount, tokenAmount);
+
+    //If icoMaxCap is reached then the ICO close
+    if (totalDepositAmount >= icoMaxCap) {
       ico = false;
     }
+  }
+
+  function claimTokens(uint256 _amount) external {
+    require(!ico, "ICO.claimTokens: ico is not finished yet.");
+
+    uint256 unlocked = unlockedToken(msg.sender);
+    require(unlocked >= _amount, "ICO.claimTokens: Not enough token to withdraw.");
+
+    UserDetail storage user = userDetails[msg.sender];
+
+    user.withdrawAmount = user.withdrawAmount.add(_amount);
+    pendingTokenToSend = pendingTokenToSend.sub(_amount);
+
+    token.transfer(msg.sender, _amount);
+
+    emit ClaimTokens(msg.sender, _amount);
   }
 
   /* ADMINISTRATIVE FUNCTIONS */
 
   // Update the ETH ICO rate
-  function updateETHIcoRate(uint256 _EtherAmount) public onlyOwner {
-    Icorate = (_EtherAmount).mul(1 wei);
+  function updateIcoRate(uint256 _icoRate) external onlyOwner {
+    icoRate = _icoRate;
   }
 
-    // Update the ETH PreSale rate
-  function updateETHPresaleRate(uint256 _EtherAmount) public onlyOwner {
-    Presalerate = (_EtherAmount).mul(1 wei);
+  // Update the ETH ICO MAX CAP
+  function updateIcoMaxCap(uint256 _icoMaxCap) external onlyOwner {
+    icoMaxCap = _icoMaxCap;
   }
 
-    // Update the ETH ICO MAX CAP
-  function updateICOMaxcap(uint256 _EtherAmount) public onlyOwner {
-    ICOmaxCap = (_EtherAmount).mul(1 wei);
+ // start/close Ico
+  function setIco(bool status) external onlyOwner {
+    ico = status;
   }
 
-  // start presale
-  function startpresale() public onlyOwner {
-    require(statepresale && !ico,"Failed the Presale was already started or another sale is ongoing");
-    presale = true;
-    statepresale = false;
-    token.lockToken();
-  }
-
-  // close Presale
-  function closepresale() public onlyOwner {
-    require(presale && !ico, "Failed it was already closed");
-    presale = false;
-  }
-
- // start ICO
-  function startICO() public onlyOwner {
-
-    // bool to see if the ico has already been launched and  presale is not in progress
-    require(stateico && !presale, "Failed the ICO was already started or another salae is ongoing");
-
-    refundPeriod = block.timestamp.add(2764800);
-      // 32 days in seconds ==> 32*24*3600
-
-    ico = true;
-    token.lockToken();
-
-    // Put the bool to False to block the start of this function again
-    stateico = false;
-  }
-
-  // close ICO
-  function closeICO() public onlyOwner {
-    require(!presale && ico,"Failed it was already closed");
-    ico = false;
-  }
-
-  /* When ICO MIN_CAP is not reach the smart contract will be credited to make refund possible by backers
-   * 1) backer call the "refund" function of the ICO contract
-   * 2) backer call the "reimburse" function of the ICO contract to get a refund in ETH
-   */
-  function refund() public {
-    require(_refundPeriod());
-    require(balances[msg.sender] > 0);
-
-    uint256 ethToSend = balances[msg.sender];
-    balances[msg.sender] = 0;
-    asyncSend(msg.sender, ethToSend);
-  }
-
-  function reimburse() public {
-    require(_refundPeriod());
-    withdrawPayments();
-    EthRaisedIco = address(this).balance;
-  }
-
-  // Function to pay out if the ICO is successful
-  function WithdrawFunds() public onlyOwner {
-    require(!ico && !presale, "Failed a sales is ongoing");
-    require(block.timestamp > refundPeriod.add(7776000) || _isSuccessful(), "Failed the refund period is not finished");
-    //  90 days in seconds ==> 2*30*24*3600
-    if (_isSuccessful()) {
-      uint256 _tokensProjectToSend = _getTokenAmountToDistribute(100 - investors);
-      _getRemainingTokenStock(projectOwner, _tokensProjectToSend);
-      token.unlockToken();
-    } else {
-      wallet.transfer(address(this).balance);
-    }
-
-    // burn in case that there is some not distributed tokens on the contract
-    if (token.balanceOf(address(this)) > 0) {
-      uint256 totalDistributedToken = tokenDistributed;
-      token.burn(address(this),totalDistributedToken);
-    }
+  // Update the ETH ICO rate
+  function updateUnlockTime(uint256 _unlockTime) external onlyOwner {
+    require(_unlockTime >= _getNow(), "ICO.updateUnlockTime: Can't set prev time as a unlock time");
+    unlockTime = _unlockTime;
   }
 
   // -----------------------------------------
-  // Internal interface (extensible)
+  // View functions
   // -----------------------------------------
 
-  /**
-   * @dev Override to extend the way in which ether is converted to tokens.
-   * @param _weiAmount Value in wei to be converted into tokens
-   * @return Number of tokens that can be purchased with the specified _weiAmount
-   */
+   function unlockedToken(address _user) public view returns (uint256) {
+      UserDetail storage user = userDetails[_user];
 
-  // Calcul the amount of token the benifiaciary will get by buying during Presale
-  function _getTokenpresaleAmount(uint256 _weiAmount) internal view returns (uint256) {
-    uint256 _amountToSend = _weiAmount.div(Presalerate).mul(10 ** TokenDecimals);
-    return _amountToSend;
+      if(unlockTime == 0) {
+          return 0;
+      }
+      else if (_getNow() < unlockTime) {
+          return 0;
+      }
+      else {
+          uint256 timePassed = _getNow().sub(unlockTime);
+          uint256 weekPassed = timePassed.div(oneWeek);
+          uint256 unlocked;
+          if(weekPassed >= 5){
+              unlocked = user.totalRewardAmount;
+          } else {
+              uint256 unlockedPercent = (weeklyUnlockPercent.mul(weekPassed)).add(firstUnlockPercent);
+              unlocked = user.totalRewardAmount.mul(unlockedPercent).div(100);
+          }
+          return unlocked.sub(user.withdrawAmount);
+      }
   }
 
   // Calcul the amount of token the benifiaciary will get by buying during Sale
-  function _getTokenAmount(uint256 _weiAmount) internal view returns (uint256) {
-    uint256 _amountToSend = _weiAmount.div(Icorate).mul(10 ** TokenDecimals);
+  function _getTokenAmount(uint256 _daiAmount) internal view returns (uint256) {
+    uint256 _amountToSend = _daiAmount.mul(10 ** tokenDecimals).div(icoRate);
     return _amountToSend;
   }
 
-  // Calcul the token amount to distribute in the forwardFunds for the project (team, bounty ...)
-  function _getTokenAmountToDistribute(uint _part) internal view returns (uint256) {
-    uint256 _delivredTokens = tokenDistributed.add(tokenDistributedpresale);
-    return (_part.mul(_delivredTokens).div(investors));
-
-  }
-
-  // verify the remaining token stock & deliver tokens to the beneficiary
-  function _getRemainingTokenStock(address _beneficiary, uint256 _tokenAmount) internal {
-    if (token.balanceOf(address(this)) >= _tokenAmount) {
-      require(token.transfer(_beneficiary, _tokenAmount));
-    }
-    else {
-      if (token.balanceOf(address(this)) == 0) {
-        require(token.mint(_beneficiary, _tokenAmount));
-      }
-      else {
-        uint256 remainingTokenTocreate = _tokenAmount.sub(token.balanceOf(address(this)));
-        require(token.transfer(_beneficiary, token.balanceOf(address(this))));
-        require(token.mint(_beneficiary, remainingTokenTocreate));
-      }
-    }
-  }
-
-  // Function to check the refund period
-  function _refundPeriod() internal view returns (bool){
-    require(!_isSuccessful(),"Failed refund period is not opened");
-    return ((!ico && !stateico) || (block.timestamp > refundPeriod));
-  }
-
-  // check if the ico is successful
-  function _isSuccessful() internal view returns (bool){
-    return (EthRaisedIco.add(EthRaisedpresale) >= ICOminCap);
+  function _getNow() public virtual view returns (uint256) {
+      return block.timestamp;
   }
 
 }

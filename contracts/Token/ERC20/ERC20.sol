@@ -1,6 +1,6 @@
 pragma solidity ^0.8.1;
 
-import "./SafeMath.sol";
+import "../../OpenZeppelin/SafeMath.sol";
 
 /**
  * @dev Implementation of the `IERC20` interface.
