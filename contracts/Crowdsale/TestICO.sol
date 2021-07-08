@@ -24,7 +24,7 @@ import "../Token/ERC20/IERC20.sol";
  * behavior.
  */
 
-contract ICO is  Ownable, Pausable {
+contract TestICO is  Ownable, Pausable {
 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
@@ -70,7 +70,7 @@ contract ICO is  Ownable, Pausable {
   uint256 private weeklyUnlockPercent = 20; 
 
   // 1 week as a timestamp.
-  uint256 private oneWeek = 604800;
+  uint256 private oneWeek = 900;
   
   // ICO start/end
   bool public ico = false;         // State of the ongoing sales ICO period

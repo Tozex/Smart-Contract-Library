@@ -47,7 +47,7 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
 
 
     describe('buyTokens', function () {
-        context('validate', function() {
+        describe('validate', function() {
             it('revert because contract paused', async function () {
                 await this.ico.pause({from:owner});
                 await expectRevert.unspecified(this.ico.buyTokens(ONE_TOKEN, {from:investor1}));
@@ -79,6 +79,15 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 await expectRevert(this.ico.buyTokens(TEN_TOKEN, {from:investor2}), "ICO.buyTokens: not enough token to send");
             });
 
+            it('revert because ICO contract doesnt have enough reward token', async function () {
+                await this.token.transfer(this.ico.address, TEN_TOKEN, {from: owner});
+                await this.daiToken.approve(this.ico.address, TEN_TOKEN, {from: investor1});
+                let currentTime = await time.latest();
+                await this.ico.updateUnlockTime(new BN(currentTime.add(new BN('1'))), {from: owner});
+                await time.increase(new BN('1'));
+                await expectRevert(this.ico.buyTokens(TEN_TOKEN, {from:investor1}), "ICO.buyTokens: Buy period already finished.");
+            });
+
             // it('revert because deposit token not approved', async function () {
             //     await this.ico.setIco( true, {from:owner});
             //     // await this.token.transfer(this.ico.address, FIVE_TOKENS, {from: owner});
@@ -87,9 +96,14 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
         });
         
 
-        context('buyTokens success', async function () {
-            beforeEach(async function () {
+        describe('buyTokens success', async function () {
+            before(async function () {
+                this.token = await ERC20.new("Tozex token", "TOZ", new BN('18'), {from: owner});
+                await this.token.mint(owner, tokenSupply, {from: owner});
+                this.ico = await ICO.new(masterWallet, this.daiToken.address, this.token.address, new BN('18'), ONE_HUNDRED_TOKENS, TWO_TOKENS, {from: owner});
                 await this.token.transfer(this.ico.address, ONE_HUNDRED_TOKENS, {from: owner});
+                let currentTime = await time.latest();
+                await this.ico.updateUnlockTime(new BN(currentTime.add(new BN('10000'))), {from: owner});
             });
             it('buyTokens', async function () {
                 const oldBalance = await this.daiToken.balanceOf(masterWallet);
@@ -129,7 +143,7 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
             });
             
         });
-        context('buyTokens - check decimals', function () {
+        describe('buyTokens - check decimals', function () {
             it('buyTokens by 2nd investor (check decimals)', async function () {
 
                 this.token = await ERC20.new("Tozex token", "TOZ", new BN('9'), {from: owner});
@@ -154,37 +168,38 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
 
     describe('Claim Token', function () {
         before(async function () {
-            this.token = await DAI.new("Tozex", "TOZ", {from: owner});
+            this.token = await ERC20.new("Tozex token", "TOZ", new BN('18'), {from: owner});
+            await this.token.unlockToken({from: owner});
             this.ico = await ICO.new(masterWallet, this.daiToken.address, this.token.address, new BN('18'), ONE_HUNDRED_TOKENS, TWO_TOKENS, {from: owner});
             await this.token.mint(owner, tokenSupply, {from: owner});
             await this.token.transfer(this.ico.address, ONE_HUNDRED_TOKENS, {from: owner});
             await this.daiToken.approve(this.ico.address, TEN_TOKEN, {from: investor1});
             await this.ico.buyTokens(TEN_TOKEN, {from:investor1});
         })
-        context('validate', function() {
+        describe('validate', function() {
             it('revert because contract paused', async function () {
                 await this.ico.pause({from:owner});
-                await expectRevert.unspecified(this.ico.claimTokens(ONE_TOKEN, {from:investor1}));
+                await expectRevert.unspecified(this.ico.claimTokens({from:investor1}));
             });
 
             it('revert because ICO is not finished', async function () {
                 await this.ico.unpause({from:owner});
                 await this.ico.setIco( true, {from:owner});
-                await expectRevert(this.ico.claimTokens(ONE_TOKEN, {from:investor1}), "ICO.claimTokens: ico is not finished yet.");
+                await expectRevert(this.ico.claimTokens({from:investor1}), "ICO.claimTokens: ico is not finished yet.");
             });
     
             it('revert because not enough balance to withdraw', async function () {
                 await this.ico.setIco( false, {from:owner});
-                await expectRevert(this.ico.claimTokens(TEN_TOKEN, {from:investor1}), "ICO.claimTokens: Not enough token to withdraw.");
+                await expectRevert(this.ico.claimTokens({from:investor1}), "ICO.claimTokens: Nothing to claim");
             });
         });
         
 
-        context('claimTokens success', async function () {
+        describe('claimTokens success', async function () {
             beforeEach(async function () {
                 await this.token.transfer(this.ico.address, ONE_HUNDRED_TOKENS, {from: owner});
             });
-            it.only('claimTokens', async function () {
+            it('claimTokens', async function () {
                 let currentTime = await time.latest();
                 await this.ico.updateUnlockTime(new BN(currentTime.add(new BN('1'))), {from: owner});
                 await this.ico.setIco(false, {from: owner});
@@ -192,18 +207,18 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 currentTime = await time.latest();
                 let rewardAmount = await this.ico.unlockedToken(investor1);
                 expect(rewardAmount).to.be.bignumber.equal('500000000000000000');
-                await this.ico.claimTokens(new BN('100000000000000000'), {from: investor1});
+                await this.ico.claimTokens({from: investor1});
                 const balance = await this.token.balanceOf(investor1);
-                expect(balance).to.be.bignumber.equal('100000000000000000');
+                expect(balance).to.be.bignumber.equal('500000000000000000');
                 rewardAmount = await this.ico.unlockedToken(investor1);
-                expect(rewardAmount).to.be.bignumber.equal('400000000000000000');
+                expect(rewardAmount).to.be.bignumber.equal('0');
             });
-            it.only('claimTokens', async function () {
+            it('claimTokens', async function () {
                 await time.increase(new BN('604800'));
                 currentTime = await time.latest();
                 let rewardAmount = await this.ico.unlockedToken(investor1);
-                expect(rewardAmount).to.be.bignumber.equal('1400000000000000000');
-                await this.ico.claimTokens(new BN('1400000000000000000'), {from: investor1});
+                expect(rewardAmount).to.be.bignumber.equal('1000000000000000000');
+                await this.ico.claimTokens({from: investor1});
                 const balance = await this.token.balanceOf(investor1);
                 expect(balance).to.be.bignumber.equal('1500000000000000000');
                 rewardAmount = await this.ico.unlockedToken(investor1);
@@ -213,12 +228,12 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 expect(userDetail.depositAmount).to.be.bignumber.equal('10000000000000000000');
                 expect(userDetail.withdrawAmount).to.be.bignumber.equal('1500000000000000000');
             });
-            it.only('claimTokens', async function () {
+            it('claimTokens', async function () {
                 await time.increase(new BN('60480000000'));
                 currentTime = await time.latest();
                 let rewardAmount = await this.ico.unlockedToken(investor1);
                 expect(rewardAmount).to.be.bignumber.equal('3500000000000000000');
-                await this.ico.claimTokens(new BN('3500000000000000000'), {from: investor1});
+                await this.ico.claimTokens({from: investor1});
                 const balance = await this.token.balanceOf(investor1);
                 expect(balance).to.be.bignumber.equal('5000000000000000000');
                 rewardAmount = await this.ico.unlockedToken(investor1);
