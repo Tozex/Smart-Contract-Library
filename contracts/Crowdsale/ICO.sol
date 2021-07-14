@@ -72,6 +72,9 @@ contract ICO is  Ownable, Pausable {
   // 1 week as a timestamp.
   uint256 private oneWeek = 604800;
   
+  // 1 week as a timestamp.
+  uint256 private sixMonths = 15552000;
+
   // ICO start/end
   bool public ico = false;         // State of the ongoing sales ICO period
 
@@ -191,7 +194,7 @@ contract ICO is  Ownable, Pausable {
 
    function unlockedToken(address _user) public view returns (uint256) {
       UserDetail storage user = userDetails[_user];
-
+      uint256 unlocked;
       if(unlockTime == 0) {
           return 0;
       }
@@ -200,15 +203,23 @@ contract ICO is  Ownable, Pausable {
       }
       else {
           uint256 timePassed = _getNow().sub(unlockTime);
-          uint256 weekPassed = timePassed.div(oneWeek);
-          uint256 unlocked;
-          if(weekPassed >= 5){
-              unlocked = user.totalRewardAmount;
-          } else {
-              uint256 unlockedPercent = (weeklyUnlockPercent.mul(weekPassed)).add(firstUnlockPercent);
-              unlocked = user.totalRewardAmount.mul(unlockedPercent).div(100);
+          if (timePassed < sixMonths) {
+            unlocked = user.totalRewardAmount.mul(firstUnlockPercent).div(100);
+          }
+          else {
+            timePassed = timePassed.sub(sixMonths);
+            uint256 weekPassed = timePassed.div(oneWeek);
+            
+            if(weekPassed >= 5){
+                unlocked = user.totalRewardAmount;
+            } else {
+                uint256 unlockedPercent = (weeklyUnlockPercent.mul(weekPassed)).add(firstUnlockPercent);
+                unlocked = user.totalRewardAmount.mul(unlockedPercent).div(100);
+            }
+            
           }
           return unlocked.sub(user.withdrawAmount);
+          
       }
   }
 
