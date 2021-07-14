@@ -83,6 +83,7 @@ contract ICO is  Ownable, Pausable {
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
   event ClaimTokens(address indexed user, uint256 amount);
+  event WithdrawDai(address indexed sender, address indexed recipient, uint256 amount);
   /**
    * @param _wallet Address where collected funds will be forwarded to
    * @param _daiToken Address of Dai token
@@ -188,6 +189,12 @@ contract ICO is  Ownable, Pausable {
     unlockTime = _unlockTime;
   }
 
+  // Withdraw Dai amount in the contract
+  function withdrawDai() external onlyOwner {
+    uint256 daiBalance = daiToken.balanceOf(address(this));
+    daiToken.safeTransfer(wallet, daiBalance);
+    emit WithdrawDai(address(this), wallet, daiBalance);
+  }
   // -----------------------------------------
   // View functions
   // -----------------------------------------
