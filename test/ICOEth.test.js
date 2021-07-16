@@ -47,35 +47,35 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
     });
 
 
-    describe('buyTokens', function () {
+    describe('sendTransaction', function () {
         describe('validate', function() {
             it('revert because contract paused', async function () {
                 await this.ico.pause({from:owner});
-                await expectRevert.unspecified(this.ico.buyTokens({from:investor1, value: bidAmount}));
+                await expectRevert.unspecified(this.ico.sendTransaction({from:investor1, value: bidAmount}));
             });
 
             it('revert because ICO is already finished', async function () {
                 await this.ico.unpause({from:owner});
                 await this.ico.setIco( false, {from:owner});
-                await expectRevert(this.ico.buyTokens({from:investor1, value: bidAmount}), "ICO.buyTokens: ICO is already finished.");
+                await expectRevert(this.ico.sendTransaction({from:investor1, value: bidAmount}), "ICO.sendTransaction: ICO is already finished.");
             });
     
             it('revert because deposit amount is less than min purchase amount', async function () {
                 await this.ico.setIco( true, {from:owner});
-                await expectRevert(this.ico.buyTokens({from:investor1, value: new BN('1000000000')}), "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
+                await expectRevert(this.ico.sendTransaction({from:investor1, value: new BN('1000000000')}), "ICO.sendTransaction: Failed the amount is not respecting the minimum deposit of ICO");
             });
 
             it('revert because ICO contract doesnt have reward token', async function () {
                 await this.ico.setIco( true, {from:owner});
                 // await this.daiToken.approve(this.ico.address, TEN_TOKEN, {from: investor1});
                 const balance = await this.token.balanceOf(this.ico.address);
-                await expectRevert(this.ico.buyTokens({from:investor1, value: bidAmount}), "ICO.buyTokens: not enough token to send");
+                await expectRevert(this.ico.sendTransaction({from:investor1, value: bidAmount}), "ICO.sendTransaction: not enough token to send");
             });
 
             it('revert because ICO contract doesnt have enough reward token', async function () {
                 await this.token.transfer(this.ico.address, TEN_TOKEN, {from: owner});
-                await this.ico.buyTokens({from:investor1, value: bidAmount});
-                await expectRevert(this.ico.buyTokens({from:investor2, from :bidAmount}), "ICO.buyTokens: not enough token to send");
+                await this.ico.sendTransaction({from:investor1, value: bidAmount});
+                await expectRevert(this.ico.sendTransaction({from:investor2, from :bidAmount}), "ICO.sendTransaction: not enough token to send");
             });
 
             it('revert because ICO contract doesnt have enough reward token', async function () {
@@ -83,18 +83,18 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 let currentTime = await time.latest();
                 await this.ico.updateUnlockTime(new BN(currentTime.add(new BN('1'))), {from: owner});
                 await time.increase(new BN('1'));
-                await expectRevert(this.ico.buyTokens( {from:investor1, value: bidAmount}), "ICO.buyTokens: Buy period already finished.");
+                await expectRevert(this.ico.sendTransaction( {from:investor1, value: bidAmount}), "ICO.sendTransaction: Buy period already finished.");
             });
 
             // it('revert because deposit token not approved', async function () {
             //     await this.ico.setIco( true, {from:owner});
             //     // await this.token.transfer(this.ico.address, FIVE_TOKENS, {from: owner});
-            //     await expectRevert(this.ico.buyTokens(TEN_TOKEN, {from:investor3}), "ERC20: transfer amount exceeds allowance.");
+            //     await expectRevert(this.ico.sendTransaction(TEN_TOKEN, {from:investor3}), "ERC20: transfer amount exceeds allowance.");
             // });
         });
         
 
-        describe('buyTokens success', async function () {
+        describe('sendTransaction success', async function () {
             before(async function () {
                 this.token = await ERC20.new("Tozex token", "TOZ", new BN('18'), {from: owner});
                 await this.token.mint(owner, tokenSupply, {from: owner});
@@ -103,9 +103,9 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 let currentTime = await time.latest();
                 await this.ico.updateUnlockTime(new BN(currentTime.add(new BN('10000'))), {from: owner});
             });
-            it('buyTokens', async function () {
+            it('sendTransaction', async function () {
                 const bidderTracker = await balance.tracker(masterWallet);
-                await this.ico.buyTokens( {from:investor1, value: bidAmount});
+                await this.ico.sendTransaction( {from:investor1, value: bidAmount});
                 const changes = await bidderTracker.delta('wei');
                 expect(changes).to.be.bignumber.equal('200000000000000');
                 const userDetail = await this.ico.userDetails(investor1);
@@ -113,9 +113,9 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 expect(userDetail.depositAmount).to.be.bignumber.equal('200000000000000');
                 expect(userDetail.withdrawAmount).to.be.bignumber.equal('0');
             });
-            it('buyTokens by 1st investor again', async function () {
+            it('sendTransaction by 1st investor again', async function () {
                 const bidderTracker = await balance.tracker(masterWallet);
-                await this.ico.buyTokens( {from:investor1, value: bidAmount});
+                await this.ico.sendTransaction( {from:investor1, value: bidAmount});
                 const changes = await bidderTracker.delta('wei');
                 expect(changes).to.be.bignumber.equal('200000000000000');
                 const userDetail = await this.ico.userDetails(investor1);
@@ -123,9 +123,9 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 expect(userDetail.depositAmount).to.be.bignumber.equal('400000000000000');
                 expect(userDetail.withdrawAmount).to.be.bignumber.equal('0');
             });
-            it('buyTokens by 2nd investor (check decimals)', async function () {
+            it('sendTransaction by 2nd investor (check decimals)', async function () {
                 const bidderTracker = await balance.tracker(masterWallet);
-                await this.ico.buyTokens( {from:investor2, value: new BN('213000000000000')});
+                await this.ico.sendTransaction( {from:investor2, value: new BN('213000000000000')});
                 const changes = await bidderTracker.delta('wei');
                 expect(changes).to.be.bignumber.equal('213000000000000');
                 const userDetail = await this.ico.userDetails(investor2);
@@ -135,8 +135,8 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
             });
             
         });
-        describe('buyTokens - check decimals', function () {
-            it('buyTokens by 2nd investor (check decimals)', async function () {
+        describe('sendTransaction - check decimals', function () {
+            it('sendTransaction by 2nd investor (check decimals)', async function () {
 
                 this.token = await ERC20.new("Tozex token", "TOZ", new BN('9'), {from: owner});
                 this.ico = await ICO.new(masterWallet, this.token.address, new BN('9'), ONE_HUNDRED_TOKENS, new BN('20000000000000'), {from: owner});
@@ -144,7 +144,7 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
                 await this.token.transfer(this.ico.address, ONE_HUNDRED_TOKENS, {from: owner});
 
                 const bidderTracker = await balance.tracker(masterWallet);
-                await this.ico.buyTokens( {from:investor1, value: bidAmount});
+                await this.ico.sendTransaction( {from:investor1, value: bidAmount});
                 const changes = await bidderTracker.delta('wei');
                 expect(changes).to.be.bignumber.equal('200000000000000');
                 const userDetail = await this.ico.userDetails(investor1);
@@ -163,7 +163,7 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
             await this.token.mint(owner, tokenSupply, {from: owner});
             this.ico = await ICO.new(masterWallet, this.token.address, new BN('18'), ONE_HUNDRED_TOKENS, new BN('20000000000000'), {from: owner});
             await this.token.transfer(this.ico.address, ONE_HUNDRED_TOKENS, {from: owner});
-            await this.ico.buyTokens( {from:investor1, value: bidAmount});
+            await this.ico.sendTransaction( {from:investor1, value: bidAmount});
         })
         describe('validate', function() {
             it('revert because contract paused', async function () {

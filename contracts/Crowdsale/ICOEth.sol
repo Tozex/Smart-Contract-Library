@@ -108,12 +108,15 @@ contract ICOEth is  Ownable, Pausable {
   // -----------------------------------------
   // ICO external interface
   // -----------------------------------------
+  receive() external payable {
+    buyTokens();
+  }
 
 
   /**
    * @dev low level token purchase ***DO NOT OVERRIDE***
    */
-  function buyTokens() external payable whenNotPaused {
+  function buyTokens() internal whenNotPaused {
     require(ico, "ICO.buyTokens: ICO is already finished.");
     require(unlockTime == 0 || _getNow() < unlockTime, "ICO.buyTokens: Buy period already finished.");
     require(msg.value >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
