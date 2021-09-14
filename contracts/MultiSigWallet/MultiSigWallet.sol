@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-/// @title Multisignature wallet by TOZEX inspired by Gnosis Multisignature project fir which we added new functionalities like transaction countdown validation .
+/// @title Multisignature wallet by TOZEX inspired by Gnosis Multisignature project for which we added new functionalities like transaction countdown validation and ERC20 tokens management.
 /// @author Tozex company
 
 import "../OpenZeppelin/SafeERC20.sol";
