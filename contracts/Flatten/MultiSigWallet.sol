@@ -145,7 +145,6 @@ contract MultiSigWallet {
   function executeTransaction(uint transactionId) internal notExecuted(transactionId) {
     if (isConfirmed(transactionId)) {
       Transaction storage txn = transactions[transactionId];
-      require(getTokenBalance(txn.token) >= txn.value, "not enough amount to withdraw");
       txn.executed = true;
       if(txn.token == address(0)) {
         (bool transferSuccess,) =txn.destination.call{value: txn.value}(txn.data);
@@ -222,19 +221,6 @@ contract MultiSigWallet {
       if (pending && !transactions[i].executed || executed && transactions[i].executed)
         count += 1;
   }
-
-  /**
-   * @dev Returns the balance of token amount in this address.
-   * @param token The address of token contract
-   */
-  function getTokenBalance(address token) internal view returns (uint count) {
-    if(token == address(0)) {
-      return address(this).balance;
-    } else {
-      return IERC20(token).balanceOf(address(this));
-    }
-  }
-
 
   /**
    * @dev Returns array with owner addresses, which confirmed transaction.
