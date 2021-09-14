@@ -24,7 +24,7 @@ import "../Token/ERC20/IERC20.sol";
  * behavior.
  */
 
-contract ICO is  Ownable, Pausable {
+contract TestICO is  Ownable, Pausable {
 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
@@ -70,11 +70,8 @@ contract ICO is  Ownable, Pausable {
   uint256 private weeklyUnlockPercent = 20; 
 
   // 1 week as a timestamp.
-  uint256 private oneWeek = 604800;
+  uint256 private oneWeek = 900;
   
-  // 1 week as a timestamp.
-  uint256 private sixMonths = 15552000;
-
   // ICO start/end
   bool public ico = false;         // State of the ongoing sales ICO period
 
@@ -83,7 +80,6 @@ contract ICO is  Ownable, Pausable {
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
   event ClaimTokens(address indexed user, uint256 amount);
-  event WithdrawDai(address indexed sender, address indexed recipient, uint256 amount);
   /**
    * @param _wallet Address where collected funds will be forwarded to
    * @param _daiToken Address of Dai token
@@ -189,19 +185,13 @@ contract ICO is  Ownable, Pausable {
     unlockTime = _unlockTime;
   }
 
-  // Withdraw Dai amount in the contract
-  function withdrawDai() external onlyOwner {
-    uint256 daiBalance = daiToken.balanceOf(address(this));
-    daiToken.safeTransfer(wallet, daiBalance);
-    emit WithdrawDai(address(this), wallet, daiBalance);
-  }
   // -----------------------------------------
   // View functions
   // -----------------------------------------
 
    function unlockedToken(address _user) public view returns (uint256) {
       UserDetail storage user = userDetails[_user];
-      uint256 unlocked;
+
       if(unlockTime == 0) {
           return 0;
       }
@@ -210,23 +200,15 @@ contract ICO is  Ownable, Pausable {
       }
       else {
           uint256 timePassed = _getNow().sub(unlockTime);
-          if (timePassed < sixMonths) {
-            unlocked = user.totalRewardAmount.mul(firstUnlockPercent).div(100);
-          }
-          else {
-            timePassed = timePassed.sub(sixMonths);
-            uint256 weekPassed = timePassed.div(oneWeek);
-            
-            if(weekPassed >= 5){
-                unlocked = user.totalRewardAmount;
-            } else {
-                uint256 unlockedPercent = (weeklyUnlockPercent.mul(weekPassed)).add(firstUnlockPercent);
-                unlocked = user.totalRewardAmount.mul(unlockedPercent).div(100);
-            }
-            
+          uint256 weekPassed = timePassed.div(oneWeek);
+          uint256 unlocked;
+          if(weekPassed >= 5){
+              unlocked = user.totalRewardAmount;
+          } else {
+              uint256 unlockedPercent = (weeklyUnlockPercent.mul(weekPassed)).add(firstUnlockPercent);
+              unlocked = user.totalRewardAmount.mul(unlockedPercent).div(100);
           }
           return unlocked.sub(user.withdrawAmount);
-          
       }
   }
 

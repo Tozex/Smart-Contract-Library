@@ -1,6 +1,6 @@
 # MultiSigWallet
 
-The MultiSigWallet has on goal to validate transfer transaction by several wallet.
+The MultiSigWallet has on goal to validate transfer transaction by several wallet limited to 10 maximum co signers managing at the same time multiple ERC20 tokens and ETH on the same contract.
 
 More information : https://medium.com/tozex/tozex-smart-contract-library-6aaca54ca871.
 

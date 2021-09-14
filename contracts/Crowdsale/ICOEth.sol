@@ -24,7 +24,7 @@ import "../Token/ERC20/IERC20.sol";
  * behavior.
  */
 
-contract ICO is  Ownable, Pausable {
+contract ICOEth is  Ownable, Pausable {
 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
@@ -38,24 +38,22 @@ contract ICO is  Ownable, Pausable {
   // The token being sold
   IERC20 public immutable token;
 
-  // Dai token.
-  IERC20 public immutable daiToken;
   // Decimals vlaue of the token
   uint256 tokenDecimals;
 
   // Address where funds are collected
-  address public wallet;
+  address payable public wallet;
 
   // How many token units a buyer gets per ETH/wei during ICO. The ETH price is fixed at 400$ during the ICO to guarantee the 30 % discount rate with the presale rate
-  uint256 public daiRatePerToken;    //  1 DCASH Token = 10 DAI
+  uint256 public ethRatePerToken;    //  1 DCASH Token = 0.1 eth
 
   // Amount of Dai raised during the ICO period
   uint256 public totalDepositAmount;
 
   uint256 private pendingTokenToSend;
 
-  // Minimum purchase size of incoming Dai token = 10$.
-  uint256 public constant minPurchaseIco = 10 * 1e18;
+  // Minimum purchase size of incoming ether amount
+  uint256 public constant minPurchaseIco = 0.0001 ether;
 
   // Hardcap goal in Ether during ICO in Ether raised fixed at $ 13 000 000 for ETH valued at 400$
   uint256 public icoMaxCap;
@@ -86,26 +84,23 @@ contract ICO is  Ownable, Pausable {
   event WithdrawDai(address indexed sender, address indexed recipient, uint256 amount);
   /**
    * @param _wallet Address where collected funds will be forwarded to
-   * @param _daiToken Address of Dai token
    * @param _token Address of reward token
    * @param _tokenDecimals The decimal of reward token
-   * @param _daiRatePerToken How many token units a buy get per Dai token.
+   * @param _ethRatePerToken How many token units a buy get per Dai token.
    */
   constructor(
-    address _wallet,
-    IERC20 _daiToken,
+    address payable _wallet,
     IERC20 _token, 
     uint256 _tokenDecimals,
     uint256 _icoMaxCap,
-    uint256 _daiRatePerToken
+    uint256 _ethRatePerToken
   ) {
-    require(address(_daiToken) != address(0) && _wallet != address(0) && address(_token) != address(0));
-    daiToken = _daiToken;
+    require(_wallet != address(0) && address(_token) != address(0));
     wallet = _wallet;
     token = _token;
     tokenDecimals = _tokenDecimals;
     icoMaxCap = _icoMaxCap;
-    daiRatePerToken = _daiRatePerToken;
+    ethRatePerToken = _ethRatePerToken;
     // start ico
     ico = true;
   }
@@ -113,36 +108,37 @@ contract ICO is  Ownable, Pausable {
   // -----------------------------------------
   // ICO external interface
   // -----------------------------------------
+  receive() external payable {
+    buyTokens();
+  }
 
 
   /**
    * @dev low level token purchase ***DO NOT OVERRIDE***
-   * @param _daiAmount Dai token amount
    */
-  function buyTokens(uint256 _daiAmount) external whenNotPaused {
+  function buyTokens() internal whenNotPaused {
     require(ico, "ICO.buyTokens: ICO is already finished.");
     require(unlockTime == 0 || _getNow() < unlockTime, "ICO.buyTokens: Buy period already finished.");
-    require(_daiAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
+    require(msg.value >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
 
-    if(totalDepositAmount.add(_daiAmount) > icoMaxCap) {
-      _daiAmount = icoMaxCap.sub(totalDepositAmount);
-    }    
+    require(totalDepositAmount.add(msg.value) <= icoMaxCap, "ICO.buyTOkens: icoMaCap overflow");
 
-    uint256 tokenAmount = _getTokenAmount(_daiAmount);
+    uint256 tokenAmount = _getTokenAmount(msg.value);
 
     require(token.balanceOf(address(this)).sub(pendingTokenToSend) >= tokenAmount, "ICO.buyTokens: not enough token to send");
 
-    daiToken.transferFrom(msg.sender, wallet, _daiAmount);
+    (bool transferSuccess,) = wallet.call{value : msg.value}("");
+    require(transferSuccess, "ICO.buyTokens: Failed to send deposit ether");
 
-    totalDepositAmount = totalDepositAmount.add(_daiAmount);
+    totalDepositAmount = totalDepositAmount.add(msg.value);
 
     pendingTokenToSend = pendingTokenToSend.add(tokenAmount);
 
     UserDetail storage userDetail = userDetails[msg.sender];
-    userDetail.depositAmount = userDetail.depositAmount.add(_daiAmount);
+    userDetail.depositAmount = userDetail.depositAmount.add(msg.value);
     userDetail.totalRewardAmount = userDetail.totalRewardAmount.add(tokenAmount);
 
-    emit TokenPurchase(msg.sender, _daiAmount, tokenAmount);
+    emit TokenPurchase(msg.sender, msg.value, tokenAmount);
 
     //If icoMaxCap is reached then the ICO close
     if (totalDepositAmount >= icoMaxCap) {
@@ -169,8 +165,8 @@ contract ICO is  Ownable, Pausable {
   /* ADMINISTRATIVE FUNCTIONS */
 
   // Update the ETH ICO rate
-  function updateDaiRatePerToken(uint256 _daiRatePerToken) external onlyOwner {
-    daiRatePerToken = _daiRatePerToken;
+  function updateEthRatePerToken(uint256 _ethRatePerToken) external onlyOwner {
+    ethRatePerToken = _ethRatePerToken;
   }
 
   // Update the ETH ICO MAX CAP
@@ -190,10 +186,11 @@ contract ICO is  Ownable, Pausable {
   }
 
   // Withdraw Dai amount in the contract
-  function withdrawDai() external onlyOwner {
-    uint256 daiBalance = daiToken.balanceOf(address(this));
-    daiToken.safeTransfer(wallet, daiBalance);
-    emit WithdrawDai(address(this), wallet, daiBalance);
+  function withdrawEth() external onlyOwner {
+    uint256 ethBalance = address(this).balance;
+    (bool transferSuccess,) = wallet.call{value : ethBalance}("");
+    require(transferSuccess, "ICO.withdrawEth: Failed to send ether");
+    emit WithdrawDai(address(this), wallet, ethBalance);
   }
   // -----------------------------------------
   // View functions
@@ -231,8 +228,8 @@ contract ICO is  Ownable, Pausable {
   }
 
   // Calcul the amount of token the benifiaciary will get by buying during Sale
-  function _getTokenAmount(uint256 _daiAmount) internal view returns (uint256) {
-    uint256 _amountToSend = _daiAmount.mul(10 ** tokenDecimals).div(daiRatePerToken);
+  function _getTokenAmount(uint256 _ethAmount) internal view returns (uint256) {
+    uint256 _amountToSend = _ethAmount.mul(10 ** tokenDecimals).div(ethRatePerToken);
     return _amountToSend;
   }
 
