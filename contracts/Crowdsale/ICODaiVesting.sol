@@ -32,6 +32,7 @@ contract ICODaiVesting is  Ownable, Pausable {
   struct UserDetail {
     uint256 depositAmount;
     uint256 totalRewardAmount;
+    uint256 withdrawAmount;   
   }
 
   // The token being sold
@@ -62,6 +63,18 @@ contract ICODaiVesting is  Ownable, Pausable {
   // Unlock time stamp.
   uint256 public unlockTime;
 
+  // The percent that unlocked after unlocktime. 10%
+  uint256 private firstUnlockPercent = 10; 
+
+  // The percent that unlocked weekly. 20%
+  uint256 private weeklyUnlockPercent = 20; 
+
+  // 1 week as a timestamp.
+  uint256 private oneWeek = 604800;
+  
+  // 1 week as a timestamp.
+  uint256 private sixMonths = 15552000;
+
   // ICO start/end
   bool public ico = false;         // State of the ongoing sales ICO period
 
@@ -69,6 +82,7 @@ contract ICODaiVesting is  Ownable, Pausable {
   mapping(address => UserDetail) public userDetails;
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
+  event ClaimTokens(address indexed user, uint256 amount);
   event WithdrawDai(address indexed sender, address indexed recipient, uint256 amount);
   /**
    * @param _wallet Address where collected funds will be forwarded to
@@ -116,13 +130,13 @@ contract ICODaiVesting is  Ownable, Pausable {
 
     uint256 tokenAmount = _getTokenAmount(_daiAmount);
 
-    require(token.balanceOf(address(this)) >= tokenAmount, "ICO.buyTokens: not enough token to send");
+    require(token.balanceOf(address(this)).sub(pendingTokenToSend) >= tokenAmount, "ICO.buyTokens: not enough token to send");
 
-    daiToken.safeTransferFrom(msg.sender, wallet, _daiAmount);
+    daiToken.transferFrom(msg.sender, wallet, _daiAmount);
 
     totalDepositAmount = totalDepositAmount.add(_daiAmount);
 
-    token.safeTransfer(msg.sender, tokenAmount);
+    pendingTokenToSend = pendingTokenToSend.add(tokenAmount);
 
     UserDetail storage userDetail = userDetails[msg.sender];
     userDetail.depositAmount = userDetail.depositAmount.add(_daiAmount);
@@ -136,6 +150,21 @@ contract ICODaiVesting is  Ownable, Pausable {
     }
   }
 
+  function claimTokens() external {
+    require(!ico, "ICO.claimTokens: ico is not finished yet.");
+
+    uint256 unlocked = unlockedToken(msg.sender);
+    require(unlocked > 0, "ICO.claimTokens: Nothing to claim.");
+
+    UserDetail storage user = userDetails[msg.sender];
+
+    user.withdrawAmount = user.withdrawAmount.add(unlocked);
+    pendingTokenToSend = pendingTokenToSend.sub(unlocked);
+
+    token.transfer(msg.sender, unlocked);
+
+    emit ClaimTokens(msg.sender, unlocked);
+  }
 
   /* ADMINISTRATIVE FUNCTIONS */
 
@@ -166,7 +195,41 @@ contract ICODaiVesting is  Ownable, Pausable {
     daiToken.safeTransfer(wallet, daiBalance);
     emit WithdrawDai(address(this), wallet, daiBalance);
   }
-  
+  // -----------------------------------------
+  // View functions
+  // -----------------------------------------
+
+   function unlockedToken(address _user) public view returns (uint256) {
+      UserDetail storage user = userDetails[_user];
+      uint256 unlocked;
+      if(unlockTime == 0) {
+          return 0;
+      }
+      else if (_getNow() < unlockTime) {
+          return 0;
+      }
+      else {
+          uint256 timePassed = _getNow().sub(unlockTime);
+          if (timePassed < sixMonths) {
+            unlocked = user.totalRewardAmount.mul(firstUnlockPercent).div(100);
+          }
+          else {
+            timePassed = timePassed.sub(sixMonths);
+            uint256 weekPassed = timePassed.div(oneWeek);
+            
+            if(weekPassed >= 5){
+                unlocked = user.totalRewardAmount;
+            } else {
+                uint256 unlockedPercent = (weeklyUnlockPercent.mul(weekPassed)).add(firstUnlockPercent);
+                unlocked = user.totalRewardAmount.mul(unlockedPercent).div(100);
+            }
+            
+          }
+          return unlocked.sub(user.withdrawAmount);
+          
+      }
+  }
+
   // Calcul the amount of token the benifiaciary will get by buying during Sale
   function _getTokenAmount(uint256 _daiAmount) internal view returns (uint256) {
     uint256 _amountToSend = _daiAmount.mul(10 ** tokenDecimals).div(daiRatePerToken);
