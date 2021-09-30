@@ -12,9 +12,9 @@ import "../Token/ERC20/IERC20.sol";
 
 
 /**
- * @title ICO
+ * @title ICOStabelcoin
  * @dev ICO is a base contract for managing a public token sale,
- * allowing investors to purchase tokens with ether. This contract implements
+ * allowing investors to purchase tokens with Stabelcoin. This contract implements
  * such functionality in its most fundamental form and can be extended to provide additional
  * functionality and/or custom behavior.
  * The external interface represents the basic interface for purchasing tokens, and conform
@@ -24,7 +24,7 @@ import "../Token/ERC20/IERC20.sol";
  * behavior.
  */
 
-contract ICODaiVesting is  Ownable, Pausable {
+contract ICOStabelcoin is  Ownable, Pausable {
 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
@@ -37,26 +37,26 @@ contract ICODaiVesting is  Ownable, Pausable {
   // The token being sold
   IERC20 public immutable token;
 
-  // Dai token.
-  IERC20 public immutable daiToken;
+  // Stabelcoin token.
+  IERC20 public immutable StabelcoinToken;
   // Decimals vlaue of the token
   uint256 tokenDecimals;
 
   // Address where funds are collected
   address public wallet;
 
-  // How many token units a buyer gets per ETH/wei during ICO. The ETH price is fixed at 400$ during the ICO to guarantee the 30 % discount rate with the presale rate
-  uint256 public daiRatePerToken;    //  1 DCASH Token = 10 DAI
+  // How many token units a buyer gets per Token/Stabelcoin
+  uint256 public StabelcoinRatePerToken;    
 
-  // Amount of Dai raised during the ICO period
+  // Amount of Stabelcoin raised during the ICO period
   uint256 public totalDepositAmount;
 
   uint256 private pendingTokenToSend;
 
-  // Minimum purchase size of incoming Dai token = 10$.
+  // Minimum purchase size of incoming Stabelcoin token = 10$.
   uint256 public constant minPurchaseIco = 10 * 1e18;
 
-  // Hardcap goal in Ether during ICO in Ether raised fixed at $ 13 000 000 for ETH valued at 400$
+  // Hardcap goal in Stabelcoin during ICO in Stabelcoin raised fixed at $ 13 000 000 for Stabelcoin valued at 400$
   uint256 public icoMaxCap;
 
   // Unlock time stamp.
@@ -65,33 +65,33 @@ contract ICODaiVesting is  Ownable, Pausable {
   // ICO start/end
   bool public ico = false;         // State of the ongoing sales ICO period
 
-  // User deposit Dai amount
+  // User deposit Stabelcoin amount
   mapping(address => UserDetail) public userDetails;
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
-  event WithdrawDai(address indexed sender, address indexed recipient, uint256 amount);
+  event WithdrawStabelcoin(address indexed sender, address indexed recipient, uint256 amount);
   /**
    * @param _wallet Address where collected funds will be forwarded to
-   * @param _daiToken Address of Dai token
+   * @param _StabelcoinToken Address of Stabelcoin token
    * @param _token Address of reward token
    * @param _tokenDecimals The decimal of reward token
-   * @param _daiRatePerToken How many token units a buy get per Dai token.
+   * @param _StabelcoinRatePerToken How many token units a buy get per Stabelcoin token.
    */
   constructor(
     address _wallet,
-    IERC20 _daiToken,
+    IERC20 _StabelcoinToken,
     IERC20 _token, 
     uint256 _tokenDecimals,
     uint256 _icoMaxCap,
-    uint256 _daiRatePerToken
+    uint256 _StabelcoinRatePerToken
   ) {
-    require(address(_daiToken) != address(0) && _wallet != address(0) && address(_token) != address(0));
-    daiToken = _daiToken;
+    require(address(_StabelcoinToken) != address(0) && _wallet != address(0) && address(_token) != address(0));
+    StabelcoinToken = _StabelcoinToken;
     wallet = _wallet;
     token = _token;
     tokenDecimals = _tokenDecimals;
     icoMaxCap = _icoMaxCap;
-    daiRatePerToken = _daiRatePerToken;
+    StabelcoinRatePerToken = _StabelcoinRatePerToken;
     // start ico
     ico = true;
   }
@@ -103,32 +103,32 @@ contract ICODaiVesting is  Ownable, Pausable {
 
   /**
    * @dev low level token purchase ***DO NOT OVERRIDE***
-   * @param _daiAmount Dai token amount
+   * @param _StabelcoinAmount Stabelcoin token amount
    */
-  function buyTokens(uint256 _daiAmount) external whenNotPaused {
+  function buyTokens(uint256 _StabelcoinAmount) external whenNotPaused {
     require(ico, "ICO.buyTokens: ICO is already finished.");
     require(unlockTime == 0 || _getNow() < unlockTime, "ICO.buyTokens: Buy period already finished.");
-    require(_daiAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
+    require(_StabelcoinAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
 
-    if(totalDepositAmount.add(_daiAmount) > icoMaxCap) {
-      _daiAmount = icoMaxCap.sub(totalDepositAmount);
+    if(totalDepositAmount.add(_StabelcoinAmount) > icoMaxCap) {
+      _StabelcoinAmount = icoMaxCap.sub(totalDepositAmount);
     }    
 
-    uint256 tokenAmount = _getTokenAmount(_daiAmount);
+    uint256 tokenAmount = _getTokenAmount(_StabelcoinAmount);
 
     require(token.balanceOf(address(this)) >= tokenAmount, "ICO.buyTokens: not enough token to send");
 
-    daiToken.safeTransferFrom(msg.sender, wallet, _daiAmount);
+    StabelcoinToken.safeTransferFrom(msg.sender, wallet, _StabelcoinAmount);
 
-    totalDepositAmount = totalDepositAmount.add(_daiAmount);
+    totalDepositAmount = totalDepositAmount.add(_StabelcoinAmount);
 
     token.safeTransfer(msg.sender, tokenAmount);
 
     UserDetail storage userDetail = userDetails[msg.sender];
-    userDetail.depositAmount = userDetail.depositAmount.add(_daiAmount);
+    userDetail.depositAmount = userDetail.depositAmount.add(_StabelcoinAmount);
     userDetail.totalRewardAmount = userDetail.totalRewardAmount.add(tokenAmount);
 
-    emit TokenPurchase(msg.sender, _daiAmount, tokenAmount);
+    emit TokenPurchase(msg.sender, _StabelcoinAmount, tokenAmount);
 
     //If icoMaxCap is reached then the ICO close
     if (totalDepositAmount >= icoMaxCap) {
@@ -139,12 +139,12 @@ contract ICODaiVesting is  Ownable, Pausable {
 
   /* ADMINISTRATIVE FUNCTIONS */
 
-  // Update the ETH ICO rate
-  function updateDaiRatePerToken(uint256 _daiRatePerToken) external onlyOwner {
-    daiRatePerToken = _daiRatePerToken;
+  // Update the Stabelcoin ICO rate
+  function updateStabelcoinRatePerToken(uint256 _StabelcoinRatePerToken) external onlyOwner {
+    StabelcoinRatePerToken = _StabelcoinRatePerToken;
   }
 
-  // Update the ETH ICO MAX CAP
+  // Update the Stabelcoin ICO MAX CAP
   function updateIcoMaxCap(uint256 _icoMaxCap) external onlyOwner {
     icoMaxCap = _icoMaxCap;
   }
@@ -154,22 +154,16 @@ contract ICODaiVesting is  Ownable, Pausable {
     ico = status;
   }
 
-  // Update the ETH ICO rate
-  function updateUnlockTime(uint256 _unlockTime) external onlyOwner {
-    require(_unlockTime >= _getNow(), "ICO.updateUnlockTime: Can't set prev time as a unlock time");
-    unlockTime = _unlockTime;
-  }
-
-  // Withdraw Dai amount in the contract
-  function withdrawDai() external onlyOwner {
-    uint256 daiBalance = daiToken.balanceOf(address(this));
-    daiToken.safeTransfer(wallet, daiBalance);
-    emit WithdrawDai(address(this), wallet, daiBalance);
+  // Withdraw Stabelcoin amount in the contract
+  function withdrawStabelcoin() external onlyOwner {
+    uint256 StabelcoinBalance = StabelcoinToken.balanceOf(address(this));
+    StabelcoinToken.safeTransfer(wallet, StabelcoinBalance);
+    emit WithdrawStabelcoin(address(this), wallet, StabelcoinBalance);
   }
   
   // Calcul the amount of token the benifiaciary will get by buying during Sale
-  function _getTokenAmount(uint256 _daiAmount) internal view returns (uint256) {
-    uint256 _amountToSend = _daiAmount.mul(10 ** tokenDecimals).div(daiRatePerToken);
+  function _getTokenAmount(uint256 _StabelcoinAmount) internal view returns (uint256) {
+    uint256 _amountToSend = _StabelcoinAmount.mul(10 ** tokenDecimals).div(StabelcoinRatePerToken);
     return _amountToSend;
   }
 
