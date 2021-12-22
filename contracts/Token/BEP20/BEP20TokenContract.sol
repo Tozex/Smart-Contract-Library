@@ -1,8 +1,9 @@
 pragma solidity ^0.8.1;
 
-import "../../OpenZeppelin/Ownable.sol";
-import "../../OpenZeppelin/SafeMath.sol";
-import "./IBEP20.sol";
+import "../contracts/Ownable.sol";
+import "../contracts/IBEP20.sol";
+import "../contracts/SafeMath.sol";
+
 
 // SPDX-License-Identifier: GPL-3.0
 
@@ -97,7 +98,7 @@ contract BEP20TokenContract is Ownable{
   */
   function transfer(address _to, uint256 _value) public canTransfer returns (bool) {
     require(_to != address(0));
-	require (!isVestedlisted(msg.sender));
+	  require (!isVestedlisted(msg.sender));
     require(_value <= balances[msg.sender]);
     require (msg.sender != address(this));
 
@@ -134,6 +135,7 @@ contract BEP20TokenContract is Ownable{
     require(_to != address(0));
     require(_value <= balances[_from]);
     require(_value <= allowed[_from][msg.sender]);
+    require (!isVestedlisted(msg.sender));
 
     balances[_from] = balances[_from].sub(_value);
     balances[_to] = balances[_to].add(_value);
@@ -162,6 +164,7 @@ contract BEP20TokenContract is Ownable{
    * @param _value The amount of tokens to be spent.
    */
   function approve(address _spender, uint256 _value) public returns (bool) {
+    require (!isVestedlisted(msg.sender));
     allowed[msg.sender][_spender] = _value;
     emit Approval(msg.sender, _spender, _value);
     return true;
