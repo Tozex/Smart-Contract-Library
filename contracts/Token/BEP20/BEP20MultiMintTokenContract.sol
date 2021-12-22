@@ -161,6 +161,7 @@ contract BEP20MultiMintTokenContract is Ownable{
    */
   function transferFrom(address _from, address _to, uint256 _value) public canTransfer returns (bool) {
     require(_to != address(0));
+    require (!isVestedlisted(msg.sender));
     require(_value <= balances[_from]);
     require(_value <= allowed[_from][msg.sender]);
 
@@ -191,6 +192,7 @@ contract BEP20MultiMintTokenContract is Ownable{
    * @param _value The amount of tokens to be spent.
    */
   function approve(address _spender, uint256 _value) public returns (bool) {
+    require (!isVestedlisted(msg.sender));
     allowed[msg.sender][_spender] = _value;
     emit Approval(msg.sender, _spender, _value);
     return true;
