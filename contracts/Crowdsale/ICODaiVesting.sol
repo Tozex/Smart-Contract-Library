@@ -24,7 +24,7 @@ import "../Token/ERC20/IERC20.sol";
  * behavior.
  */
 
-contract ICO is  Ownable, Pausable {
+contract ICODaiVesting is  Ownable, Pausable {
 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
