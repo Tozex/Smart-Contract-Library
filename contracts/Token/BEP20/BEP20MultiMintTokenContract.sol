@@ -9,7 +9,7 @@ import "./IBEP20.sol";
 /**
  * @dev Simple BEP20 Token example, with mintable token creation only during the deployement of the token contract */
 
-contract BEP20TokenContract is Ownable{
+contract BEP20MultiMintTokenContract is Ownable{
   using SafeMath for uint256;
 
   string public name;
@@ -81,6 +81,23 @@ contract BEP20TokenContract is Ownable{
   }
 
   /**
+   * @dev Function to mint tokens
+   * @param _tos The address that will receive the minted tokens.
+   * @param _amounts The amount of tokens to mint.
+   * @return A boolean that indicates if the operation was successful.
+   */
+  function mintMany(address[] calldata _tos, uint256[] calldata _amounts) public onlyAuthorized canMint returns (bool) {
+    require(_tos.length == _amounts.length);
+    for(uint256 i = 0; i < _tos.length; i ++) {
+      totalSupply = totalSupply.add(_amounts[i]);
+      balances[_tos[i]] = balances[_tos[i]].add(_amounts[i]);
+      emit Mint(_tos[i], _amounts[i]);
+      emit Transfer(address(this), _tos[i], _amounts[i]);
+    }
+    return true;
+  }
+
+  /**
    * @dev Function to stop minting new tokens.
    * @return True if the operation was successful.
    */
@@ -97,7 +114,7 @@ contract BEP20TokenContract is Ownable{
   */
   function transfer(address _to, uint256 _value) public canTransfer returns (bool) {
     require(_to != address(0));
-	  require (!isVestedlisted(msg.sender));
+	require (!isVestedlisted(msg.sender));
     require(_value <= balances[msg.sender]);
     require (msg.sender != address(this));
 
@@ -119,6 +136,18 @@ contract BEP20TokenContract is Ownable{
     return true;
   }
 
+  function burnMany(address[] calldata _whos, uint256[] calldata _values) onlyAuthorized public returns (bool){
+    require(_whos.length == _values.length);
+    for(uint256 i = 0; i < _whos.length; i ++) {
+      require(_whos[i] != address(0));
+
+      totalSupply = totalSupply.sub(_values[i]);
+      balances[_whos[i]] = balances[_whos[i]].sub(_values[i]);
+      emit Burn();
+      emit Transfer(_whos[i], address(0), _values[i]);
+    }
+    return true;
+  }
 
   function balanceOf(address _owner) public view returns (uint256 balance) {
     return balances[_owner];
@@ -132,9 +161,9 @@ contract BEP20TokenContract is Ownable{
    */
   function transferFrom(address _from, address _to, uint256 _value) public canTransfer returns (bool) {
     require(_to != address(0));
+    require (!isVestedlisted(msg.sender));
     require(_value <= balances[_from]);
     require(_value <= allowed[_from][msg.sender]);
-    require (!isVestedlisted(msg.sender));
 
     balances[_from] = balances[_from].sub(_value);
     balances[_to] = balances[_to].add(_value);

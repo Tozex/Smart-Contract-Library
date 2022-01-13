@@ -80,6 +80,7 @@ contract ICOEth is  Ownable, Pausable {
   mapping(address => UserDetail) public userDetails;
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
+  event AddInvestor(address indexed investor, uint256 rewardAmount);
   event ClaimTokens(address indexed user, uint256 amount);
   event WithdrawDai(address indexed sender, address indexed recipient, uint256 amount);
   /**
@@ -144,6 +145,26 @@ contract ICOEth is  Ownable, Pausable {
     if (totalDepositAmount >= icoMaxCap) {
       ico = false;
     }
+  }
+
+
+  /**
+   * @dev low level token purchase ***DO NOT OVERRIDE***
+   */
+  function addInvestor(address _investor, uint256 _rewardAmount) external whenNotPaused  onlyOwner {
+    require(_investor != address(0), "ICO.addInvestor: Investor address should not be zero");
+    require(_rewardAmount > 0, "ICO.addInvestor: Reward amount should be bigger than zero");
+    require(ico, "ICO.addInvestor: ICO is already finished.");
+    require(unlockTime == 0 || _getNow() < unlockTime, "ICO.addInvestor: Buy period already finished.");
+
+    require(token.balanceOf(address(this)).sub(pendingTokenToSend) >= _rewardAmount, "ICO.addInvestor: not enough token to send");
+
+    pendingTokenToSend = pendingTokenToSend.add(_rewardAmount);
+
+    UserDetail storage userDetail = userDetails[_investor];
+    userDetail.totalRewardAmount = userDetail.totalRewardAmount.add(_rewardAmount);
+
+    emit AddInvestor(_investor, _rewardAmount);
   }
 
   function claimTokens() external {

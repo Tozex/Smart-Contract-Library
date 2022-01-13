@@ -1,4 +1,4 @@
-var ICO = artifacts.require("./TestICO.sol");
+var ICOStabelcoin = artifacts.require("./ICOStabelcoin.sol");
 const dotenv = require('dotenv');
 const Web3 = require('web3');
 var BN = Web3.utils.BN;
@@ -311,21 +311,10 @@ var IERC20 = [
 dotenv.config();
 
 var decimal = new BN('10');
-var icoMaxCap = new BN('3000000000000000000000');
-var daiRatePerToken = new BN('150000000000000000'); 
-
+var icoMaxCap = new BN('600000000000000000000000');
+var daiRatePerToken = new BN('600000000000000000'); 
+var stakingToken = "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee";
+var rewardToken = "0x8DB2F703AD3d191521024E50D280674faA6FDD0C";
 module.exports = async function(deployer, network) {
-  deployer.deploy(ICO, "0x801d037a039a38e24e04b2e94a3741eb9a39a9dc", "0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa", "0xfe47b7e3333039f1a6731d8ea9552d8a4e7544ff", decimal, icoMaxCap, daiRatePerToken);
-  // const contract = new web3.eth.Contract(IERC20, '0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa');
-  // const approve = contract.methods.approve("0x9Bc468f97672f75364ce7fD076F321A1eBe3B09c", icoMaxCap);
-  // const result = await web3.eth.sendTransaction({
-  //   data: approve.encodeABI(),
-  //   to: '0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa',
-  //   from: '0x3D0b45BCEd34dE6402cE7b9e7e37bDd0Be9424F3',
-  //   chainId: 4,
-  //   gasPrice: "6000000000",
-  //   gas: "10000000",
-  //   // value: "20000000000000000"
-  // });
-  // console.log(result);
+  await deployer.deploy(ICOStabelcoin, "0x801d037a039a38e24e04b2e94a3741eb9a39a9dc", stakingToken, rewardToken, decimal, icoMaxCap, daiRatePerToken);
 };

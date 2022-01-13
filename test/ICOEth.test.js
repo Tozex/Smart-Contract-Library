@@ -79,6 +79,12 @@ contract('ICO Test', function ([owner, masterWallet, investor1, investor2, inves
             });
 
             it('revert because ICO contract doesnt have enough reward token', async function () {
+                await this.token.transfer(this.ico.address, TEN_TOKEN, {from: owner});
+                await this.ico.addInvestor(investor1, new BN('10000000000000000000'), {from:owner});
+                await expectRevert(this.ico.sendTransaction({from:investor2, from :bidAmount}), "ICO.sendTransaction: not enough token to send");
+            });
+
+            it('revert because ICO contract doesnt have enough reward token', async function () {
                 await this.token.transfer(this.ico.address, ONE_TOKEN, {from: owner});
                 let currentTime = await time.latest();
                 await this.ico.updateUnlockTime(new BN(currentTime.add(new BN('1'))), {from: owner});

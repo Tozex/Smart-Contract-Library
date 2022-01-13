@@ -55,6 +55,26 @@ module.exports = {
       gasPrice: 2000000000,
       gas: 4712388,
     },
+    bscmainnet: {
+      provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://bsc-dataseed.binance.org/`),
+      network_id: 56,
+      confirmations: 2,
+      timeoutBlocks: 10000,
+      gas: '0x44AA20',
+      gasPrice: '0x4A817C800',
+      skipDryRun: true,
+      // gas:8000000,
+      // networkCheckTimeout:999999
+    },
+    bsctestnet: {
+      provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://data-seed-prebsc-1-s1.binance.org:8545/`),
+      network_id: 97,
+      confirmations: 2,
+      gasPrice: 20000000000,
+      timeoutBlocks: 10000,
+      skipDryRun: true,
+      networkCheckTimeout:999999
+    }
     // Useful for private networks
     // private: {
     // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
@@ -66,7 +86,8 @@ module.exports = {
     'truffle-plugin-verify'
   ],
   api_keys: {
-    etherscan: process.env.ETHERSCAN_API_KEY
+    etherscan: process.env.ETHERSCAN_API_KEY,
+    bscscan: process.env.BSCSCAN_API_KEY
   },
   // Set default mocha options here, use special reporters etc.
   mocha: {
