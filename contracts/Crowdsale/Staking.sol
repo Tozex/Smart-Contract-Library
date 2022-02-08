@@ -3,12 +3,36 @@ pragma solidity ^0.8.1;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
-contract Staking {
+contract Staking is Ownable, Pausable{
     
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
+    using Address for address;
 
+    event SetFee(
+        uint256 fee
+    );
+
+    event SetDevWallet(
+        address devWallet
+    );
+
+    event SetToken(
+        address token
+    );
+
+    event SetMonthlyInterest(
+        uint256 monthlyInterest
+    );
+
+    event SetQuarterlyInterest(
+        uint256 quarterlyInterest
+    );
+    
     event Deposit(
         address user, 
         uint256 amount,
@@ -34,32 +58,50 @@ contract Staking {
     uint256 public constant month = 30 days;
     uint256 public constant quarter = 90 days;
 
-    constructor(IERC20 _token) {
+    uint256 public monthlyInterest = 20; // 2%
+    uint256 public quarterlyInterest = 100; // 10%
+    uint256 public fee = 10; // 1%
+    address public devWallet;
+
+    constructor(IERC20 _token, address _devWallet) {
+        require(address(_token) != address(0));
+        require(_devWallet != address(0));
+        token = _token;
+        devWallet = _devWallet;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function setFee(uint256 _fee) external onlyOwner {
+        fee = _fee;
+        emit SetFee(_fee);
+    }
+
+    function setDevWallet(address _devWallet) external onlyOwner {
+        devWallet = _devWallet;
+        emit SetDevWallet(_devWallet);
+    }
+
+    function setToken(IERC20 _token) external onlyOwner {
         require(address(_token) != address(0));
         token = _token;
+        emit SetToken(address(_token));
     }
 
-    function removeDepositedElement(address _user , uint _index) internal {
-        UserDetail[] storage user = userDetail[_user];
-
-        require(_index < user.length, "xCrssToken: Index of user detail array out of bound");
-
-        for (uint i = _index ; i < user.length - 1; i++) {
-            user[i] = user[i + 1];
-        }
-        user.pop();
+    function setMonthlyInterest(uint256 _monthlyInterest) external onlyOwner {
+        monthlyInterest = _monthlyInterest;
+        emit SetMonthlyInterest(_monthlyInterest);
     }
-    
-    function timePassed(uint256 _prevTime, uint256 _currentTime, bool _isMonthly) internal view returns(uint256) {
-        uint256 passedTime = _currentTime.sub(_prevTime);
-        uint256 passed;
-        if(_isMonthly) {
-            passed = passedTime.div(month);
-        }
-        else {
-            passed = passedTime.div(quarter);
-        }
-        return passed;
+
+    function setQuarterlyInterest(uint256 _quarterlyInterest) external onlyOwner {
+        quarterlyInterest = _quarterlyInterest;
+        emit SetQuarterlyInterest(_quarterlyInterest);
     }
 
     function getReward(address _user) public view returns (uint256, uint256) {
@@ -99,6 +141,79 @@ contract Staking {
         return (monthlyDeposit, quarterlyDeposit);
     }
 
+    function deposit(address _user, uint256 _amount, bool _isMonthly) public whenNotPaused {
+
+        require(_user != address(0), "Staking.deposit: Deposit user address should not be zero address");
+
+        uint256 oldBalance = token.balanceOf(address(this));
+        token.transferFrom(msg.sender, address(this), _amount);
+        uint256 newBalance = token.balanceOf(address(this));
+        _amount = newBalance.sub(oldBalance);
+
+        UserDetail[] storage user = userDetail[_user];
+        UserDetail memory userInfo;
+
+        userInfo.depositTime = _getNow();
+        userInfo.depositAmount = _amount;
+        userInfo.lastActionTime = _getNow();
+        userInfo.isMonthly = _isMonthly;
+        user.push(userInfo);
+
+        emit Deposit(_user, _amount, _isMonthly);
+    }
+    
+    function withdraw(uint256 _amount) public whenNotPaused {
+        (uint256 monthlyReward, uint256 quarterlyReward) = getReward(msg.sender);
+        uint256 unlocked = getUnlockedDeposit(msg.sender);
+
+        require(unlocked >= _amount, "Not enough tokens to withdraw");
+
+        //Claiming Reward
+        uint256 rewardAmount = monthlyReward.add(quarterlyReward);
+        UserDetail[] storage user = userDetail[msg.sender];
+        if(rewardAmount > 0) {
+            for (uint256 i = 0; i < user.length; i ++) {
+                user[i].lastActionTime = _getNow();
+            }
+            token.safeTransfer(msg.sender, rewardAmount);
+        }
+
+        if(_amount > 0) {
+            withdrawByElement(msg.sender, _amount);
+            
+            uint256 feeAmount = _amount.mul(fee).div(1e3);
+            uint256 transferAmount = _amount.sub(feeAmount);
+            token.safeTransfer(devWallet, feeAmount);
+            token.safeTransfer(msg.sender, transferAmount);
+        }
+        
+        emit WithdrawToken(msg.sender, _amount);
+    }
+
+    function removeDepositedElement(address _user , uint _index) internal {
+        UserDetail[] storage user = userDetail[_user];
+
+        require(_index < user.length, "xCrssToken: Index of user detail array out of bound");
+
+        for (uint i = _index ; i < user.length - 1; i++) {
+            user[i] = user[i + 1];
+        }
+        user.pop();
+    }
+    
+    function timePassed(uint256 _prevTime, uint256 _currentTime, bool _isMonthly) internal pure returns(uint256) {
+        uint256 passedTime = _currentTime.sub(_prevTime);
+        uint256 passed;
+        if(_isMonthly) {
+            passed = passedTime.div(month);
+        }
+        else {
+            passed = passedTime.div(quarter);
+        }
+        return passed;
+    }
+
+    
     function getUnlockedDeposit(address _user) internal view returns (uint256) {
         UserDetail[] storage user = userDetail[_user];
         uint256 unlocked;
@@ -114,7 +229,7 @@ contract Staking {
         return unlocked;
     }
 
-    function withdrawByElement(address _user, uint256 _withdrawAmount) internal returns (uint256) {
+    function withdrawByElement(address _user, uint256 _withdrawAmount) internal {
         UserDetail[] storage user = userDetail[_user];
 
         for (uint256 i = 0; i < user.length; i ++) {
@@ -144,50 +259,6 @@ contract Staking {
         }
     }
 
-    function depositToken(address _user, uint256 _amount, bool _isMonthly) public {
-
-        require(_user != address(0), "Staking.deposit: Deposit user address should not be zero address");
-
-        uint256 oldBalance = token.balanceOf(address(this));
-        token.transferFrom(msg.sender, address(this), _amount);
-        uint256 newBalance = token.balanceOf(address(this));
-        _amount = newBalance.sub(oldBalance);
-
-        UserDetail[] storage user = userDetail[_user];
-        UserDetail storage userInfo;
-
-        userInfo.depositTime = _getNow();
-        userInfo.depositAmount = _amount;
-        userInfo.lastActionTime = _getNow();
-        userInfo.isMonthly = _isMonthly;
-        user.push(userInfo);
-
-        emit Deposit(_user, _amount, _isMonthly);
-    }
-    
-    function withdraw(uint256 _amount) public {
-        (uint256 monthlyReward, uint256 quarterlyReward) = getReward(msg.sender);
-        uint256 unlocked = getUnlockedDeposit(msg.sender);
-
-        require(unlocked >= _amount, "Not enough tokens to withdraw");
-
-        //Claiming Reward
-        uint256 rewardAmount = monthlyReward.add(quarterlyReward);
-        UserDetail[] storage user = userDetail[msg.sender];
-        if(rewardAmount > 0) {
-            for (uint256 i = 0; i < user.length; i ++) {
-                user[i].lastActionTime = _getNow();
-            }
-            token.safeTransfer(msg.sender, rewardAmount);
-        }
-
-        withdrawByElement(msg.sender, _amount);
-        
-        token.safeTransfer(msg.sender, _amount);
-        
-        emit WithdrawToken(msg.sender, _amount);
-    }
-
     function _getNow() public virtual view returns (uint256) {
         return block.timestamp;
     }
@@ -197,10 +268,10 @@ contract Staking {
             return 0;
         }
         else if(_month == 1) {
-            return _amount.mul(2).div(100);
+            return _amount.mul(monthlyInterest).div(1e3);
         }
         else {
-            return _amount.add(getRewardMonthly(_amount, _month - 1)).mul(2).div(100);
+            return _amount.add(getRewardMonthly(_amount, _month - 1)).mul(monthlyInterest).div(1e3);
         }
     }
 
@@ -209,10 +280,10 @@ contract Staking {
             return 0;     
         }
         else if(_quarter == 1) {
-            return _amount.mul(10).div(100);
+            return _amount.mul(quarterlyInterest).div(1e3);
         }
         else {
-            return _amount.add(getRewardQuarterly(_amount, _quarter - 1)).mul(10).div(100);
+            return _amount.add(getRewardQuarterly(_amount, _quarter - 1)).mul(quarterlyInterest).div(1e3);
         }
     }
 }
