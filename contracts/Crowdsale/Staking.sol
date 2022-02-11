@@ -4,10 +4,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-contract Staking is Ownable, Pausable{
+contract Staking is Ownable, Pausable, ReentrancyGuard{
     
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -141,16 +142,16 @@ contract Staking is Ownable, Pausable{
         return (monthlyDeposit, quarterlyDeposit);
     }
 
-    function deposit(address _user, uint256 _amount, bool _isMonthly) public whenNotPaused {
+    function deposit(uint256 _amount, bool _isMonthly) public whenNotPaused nonReentrant {
 
-        require(_user != address(0), "Staking.deposit: Deposit user address should not be zero address");
+        require(msg.sender != address(0), "Staking.deposit: Deposit user address should not be zero address");
 
         uint256 oldBalance = token.balanceOf(address(this));
         token.transferFrom(msg.sender, address(this), _amount);
         uint256 newBalance = token.balanceOf(address(this));
         _amount = newBalance.sub(oldBalance);
 
-        UserDetail[] storage user = userDetail[_user];
+        UserDetail[] storage user = userDetail[msg.sender];
         UserDetail memory userInfo;
 
         userInfo.depositTime = _getNow();
@@ -159,10 +160,10 @@ contract Staking is Ownable, Pausable{
         userInfo.isMonthly = _isMonthly;
         user.push(userInfo);
 
-        emit Deposit(_user, _amount, _isMonthly);
+        emit Deposit(msg.sender, _amount, _isMonthly);
     }
     
-    function withdraw(uint256 _amount) public whenNotPaused {
+    function withdraw(uint256 _amount) public whenNotPaused nonReentrant {
         (uint256 monthlyReward, uint256 quarterlyReward) = getReward(msg.sender);
         uint256 unlocked = getUnlockedDeposit(msg.sender);
 
@@ -264,26 +265,24 @@ contract Staking is Ownable, Pausable{
     }
 
     function getRewardMonthly(uint256 _amount, uint256 _month) internal view returns(uint256) {
-        if(_month == 0) {
-            return 0;
+        uint256 reward;
+        uint256 s_reward;
+        for(uint256 i = 0; i < _month; i ++) {
+            s_reward = reward;
+            reward = _amount.add(reward).mul(monthlyInterest).div(1e3);
+            reward = reward.add(s_reward);
         }
-        else if(_month == 1) {
-            return _amount.mul(monthlyInterest).div(1e3);
-        }
-        else {
-            return _amount.add(getRewardMonthly(_amount, _month - 1)).mul(monthlyInterest).div(1e3);
-        }
+        return reward;
     }
 
     function getRewardQuarterly(uint256 _amount, uint256 _quarter) internal view returns(uint256) {
-        if(_quarter == 0) {
-            return 0;     
+        uint256 reward;
+        uint256 s_reward;
+        for(uint256 i = 0; i < _quarter; i ++) {
+            s_reward = reward;
+            reward = _amount.add(reward).mul(quarterlyInterest).div(1e3);
+            reward = reward.add(s_reward);
         }
-        else if(_quarter == 1) {
-            return _amount.mul(quarterlyInterest).div(1e3);
-        }
-        else {
-            return _amount.add(getRewardQuarterly(_amount, _quarter - 1)).mul(quarterlyInterest).div(1e3);
-        }
+        return reward;
     }
 }
