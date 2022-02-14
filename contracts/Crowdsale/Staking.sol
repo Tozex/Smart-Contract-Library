@@ -34,6 +34,10 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
         uint256 quarterlyInterest
     );
     
+    event SetDepositEnabled(
+        bool depositEnabled
+    );
+
     event Deposit(
         address user, 
         uint256 amount,
@@ -63,6 +67,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
     uint256 public quarterlyInterest = 100; // 10%
     uint256 public fee = 10; // 1%
     address public devWallet;
+
+    bool public depositEnabled = true;
 
     constructor(IERC20 _token, address _devWallet) {
         require(address(_token) != address(0));
@@ -105,6 +111,11 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
         emit SetQuarterlyInterest(_quarterlyInterest);
     }
 
+    function setDepositEnabled(bool _depositEnabled) external onlyOwner {
+        depositEnabled = _depositEnabled;
+        emit SetDepositEnabled(_depositEnabled);
+    }
+
     function getReward(address _user) public view returns (uint256, uint256) {
         UserDetail[] storage user = userDetail[_user];
 
@@ -143,7 +154,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
     }
 
     function deposit(uint256 _amount, bool _isMonthly) public whenNotPaused nonReentrant {
-
+        require(depositEnabled);
         require(msg.sender != address(0), "Staking.deposit: Deposit user address should not be zero address");
 
         uint256 oldBalance = token.balanceOf(address(this));
@@ -176,6 +187,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
             for (uint256 i = 0; i < user.length; i ++) {
                 user[i].lastActionTime = _getNow();
             }
+            uint256 feeAmount = rewardAmount.mul(fee).div(1e3);
+            rewardAmount = rewardAmount.sub(feeAmount);
             token.safeTransfer(msg.sender, rewardAmount);
         }
 
@@ -267,6 +280,9 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
     function getRewardMonthly(uint256 _amount, uint256 _month) internal view returns(uint256) {
         uint256 reward;
         uint256 s_reward;
+        if(_month > 12) {
+            _month = 12;
+        }
         for(uint256 i = 0; i < _month; i ++) {
             s_reward = reward;
             reward = _amount.add(reward).mul(monthlyInterest).div(1e3);
@@ -278,6 +294,9 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
     function getRewardQuarterly(uint256 _amount, uint256 _quarter) internal view returns(uint256) {
         uint256 reward;
         uint256 s_reward;
+        if(_quarter > 12) {
+            _quarter = 12;
+        }
         for(uint256 i = 0; i < _quarter; i ++) {
             s_reward = reward;
             reward = _amount.add(reward).mul(quarterlyInterest).div(1e3);
