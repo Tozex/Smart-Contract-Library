@@ -294,8 +294,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
     function getRewardQuarterly(uint256 _amount, uint256 _quarter) internal view returns(uint256) {
         uint256 reward;
         uint256 s_reward;
-        if(_quarter > 12) {
-            _quarter = 12;
+        if(_quarter > 4) {
+            _quarter = 4;
         }
         for(uint256 i = 0; i < _quarter; i ++) {
             s_reward = reward;
