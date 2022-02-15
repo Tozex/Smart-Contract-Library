@@ -174,18 +174,26 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
         emit Deposit(msg.sender, _amount, _isMonthly);
     }
     
-    function withdraw(uint256 _amount) public whenNotPaused nonReentrant {
+    function withdraw(uint256 _amount, bool _isMonthly) public whenNotPaused nonReentrant {
         (uint256 monthlyReward, uint256 quarterlyReward) = getReward(msg.sender);
-        uint256 unlocked = getUnlockedDeposit(msg.sender);
+        uint256 unlocked = getUnlockedDeposit(msg.sender, _isMonthly);
 
         require(unlocked >= _amount, "Not enough tokens to withdraw");
 
         //Claiming Reward
-        uint256 rewardAmount = monthlyReward.add(quarterlyReward);
+        uint256 rewardAmount;
+        if(_isMonthly) {
+            rewardAmount = monthlyReward;
+        } 
+        else {
+            rewardAmount = quarterlyReward;
+        }
         UserDetail[] storage user = userDetail[msg.sender];
         if(rewardAmount > 0) {
             for (uint256 i = 0; i < user.length; i ++) {
-                user[i].lastActionTime = _getNow();
+                if(user[i].isMonthly == _isMonthly) {
+                    user[i].lastActionTime = _getNow();
+                }
             }
             uint256 feeAmount = rewardAmount.mul(fee).div(1e3);
             rewardAmount = rewardAmount.sub(feeAmount);
@@ -193,7 +201,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
         }
 
         if(_amount > 0) {
-            withdrawByElement(msg.sender, _amount);
+            withdrawByElement(msg.sender, _amount, _isMonthly);
             
             uint256 feeAmount = _amount.mul(fee).div(1e3);
             uint256 transferAmount = _amount.sub(feeAmount);
@@ -228,38 +236,42 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
     }
 
     
-    function getUnlockedDeposit(address _user) internal view returns (uint256) {
+    function getUnlockedDeposit(address _user, bool _isMonthly) internal view returns (uint256) {
         UserDetail[] storage user = userDetail[_user];
         uint256 unlocked;
         for (uint256 i = 0; i < user.length; i ++) {
-            if(_getNow() > user[i].depositTime) {
-                uint256 periodPassed = timePassed(user[i].depositTime, _getNow(), user[i].isMonthly);
+            if(user[i].isMonthly == _isMonthly) {
+                if(_getNow() > user[i].depositTime) {
+                    uint256 periodPassed = timePassed(user[i].depositTime, _getNow(), user[i].isMonthly);
 
-                if(periodPassed >= 1){
-                    unlocked = unlocked.add(user[i].depositAmount);
+                    if(periodPassed >= 1){
+                        unlocked = unlocked.add(user[i].depositAmount);
+                    }
                 }
             }
         }
         return unlocked;
     }
 
-    function withdrawByElement(address _user, uint256 _withdrawAmount) internal {
+    function withdrawByElement(address _user, uint256 _withdrawAmount, bool _isMonthly) internal {
         UserDetail[] storage user = userDetail[_user];
 
         for (uint256 i = 0; i < user.length; i ++) {
-            if(_getNow() > user[i].depositTime) {
-                if(_withdrawAmount > 0) {
-                    uint256 periodPassed = timePassed(user[i].depositTime, _getNow(), user[i].isMonthly);
+            if(user[i].isMonthly == _isMonthly) {
+                if(_getNow() > user[i].depositTime) {
+                    if(_withdrawAmount > 0) {
+                        uint256 periodPassed = timePassed(user[i].depositTime, _getNow(), user[i].isMonthly);
 
-                    if(periodPassed >= 1){
-                        if (user[i].depositAmount >= _withdrawAmount) {
-                            user[i].depositAmount = user[i].depositAmount.sub(_withdrawAmount);
-                            user[i].lastActionTime = _getNow();
-                            _withdrawAmount = 0;
-                        } else {
-                            _withdrawAmount = _withdrawAmount.sub(user[i].depositAmount);
-                            user[i].depositAmount = 0;
-                            user[i].lastActionTime = _getNow();
+                        if(periodPassed >= 1){
+                            if (user[i].depositAmount >= _withdrawAmount) {
+                                user[i].depositAmount = user[i].depositAmount.sub(_withdrawAmount);
+                                user[i].lastActionTime = _getNow();
+                                _withdrawAmount = 0;
+                            } else {
+                                _withdrawAmount = _withdrawAmount.sub(user[i].depositAmount);
+                                user[i].depositAmount = 0;
+                                user[i].lastActionTime = _getNow();
+                            }
                         }
                     }
                 }
