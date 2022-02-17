@@ -60,6 +60,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
 
     mapping(address => UserDetail[]) public userDetail;
 
+    uint256 public totalDepositAmount;
+
     uint256 public constant month = 30 days;
     uint256 public constant quarter = 90 days;
 
@@ -152,7 +154,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
         }
         return (monthlyDeposit, quarterlyDeposit);
     }
-
+    
     function deposit(uint256 _amount, bool _isMonthly) public whenNotPaused nonReentrant {
         require(depositEnabled);
         require(msg.sender != address(0), "Staking.deposit: Deposit user address should not be zero address");
@@ -161,6 +163,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
         token.transferFrom(msg.sender, address(this), _amount);
         uint256 newBalance = token.balanceOf(address(this));
         _amount = newBalance.sub(oldBalance);
+
+        totalDepositAmount = totalDepositAmount.add(_amount);
 
         UserDetail[] storage user = userDetail[msg.sender];
         UserDetail memory userInfo;
@@ -197,10 +201,13 @@ contract Staking is Ownable, Pausable, ReentrancyGuard{
             }
             uint256 feeAmount = rewardAmount.mul(fee).div(1e3);
             rewardAmount = rewardAmount.sub(feeAmount);
+            token.safeTransfer(devWallet, feeAmount);
             token.safeTransfer(msg.sender, rewardAmount);
         }
-
+        
         if(_amount > 0) {
+            totalDepositAmount = totalDepositAmount.sub(_amount);
+            
             withdrawByElement(msg.sender, _amount, _isMonthly);
             
             uint256 feeAmount = _amount.mul(fee).div(1e3);
