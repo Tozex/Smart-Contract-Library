@@ -8,7 +8,7 @@ Tozex library is open source, allowing anyone to check, audit, and contribute to
 
 ### A) Fungible Token contract based on the ERC20 standard including some custom and audited functions by design like : 
 - Vested Wallet or Smart contract function used to protect the interest of the project to ensure the entire control of your crypto assets from hackers, none compliant investors/wallets or undesirable market making bots.
--  Burn and mint token function with EIP-2309, a Consecutive Transfer Extension, which enables minting any number of tokens in a single transaction to multiple wallets.
+- Burn and mint token function with EIP-2309, a Consecutive Transfer Extension, which enables minting any number of tokens in a single transaction to multiple wallets.
 - Multi ownership function allowing to have a maximum of two owners to comply with a DAO demand.
 
 ### B) Non Fungible Token Contract based on ERC721 standard including some customized and audited functions by design like : 
@@ -17,8 +17,18 @@ Tozex library is open source, allowing anyone to check, audit, and contribute to
 
 ### C) Automated Token Sale Contract (ICO / STO / BRO) compliant with all stabelcoins (USDT/USDC/BUSD/DAI) to automatically collect funds on an external wallet and distribute immediately your tokens. 
 
+- Support ERC20 fungible or ERC721 non fungible token sale
+- Stablecoin and native blockchain cryptocurrency accepted
+- White listed and authorized wallets (optional)
+- Lock and unlock token transfer mechanism for emergency action
+- Automatic token distribution to investors 
+- Automatic distribution of the fund to founders 
+
 ### D) Multi-signature Token Contract to secure all fungible assets among co signers (until 10) used to deploy a specific governance token mechanism.
 
+- Up to 10 co signers allowed to confirm an outside transaction
+- Management of ERC20 fungible and ERC721 non fungible tokens
+- Possibility to set up a dealline confirmation parameter for an outside transaction
 
 
 
