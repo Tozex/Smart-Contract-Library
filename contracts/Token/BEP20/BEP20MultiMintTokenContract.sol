@@ -2,7 +2,7 @@ pragma solidity ^0.8.1;
 
 import "../../OpenZeppelin/Ownable.sol";
 import "../../OpenZeppelin/SafeMath.sol";
-import "./IBEP20.sol";
+import "../../Interface/IBEP20.sol";
 
 // SPDX-License-Identifier: GPL-3.0
 

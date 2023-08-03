@@ -5,7 +5,7 @@ import "../OpenZeppelin/Ownable.sol";
 import "../OpenZeppelin/Pausable.sol";
 import "../OpenZeppelin/SafeERC20.sol";
 
-import "../Token/ERC20/IERC20.sol";
+import "../Interface/IERC20.sol";
 
 
 // SPDX-License-Identifier: GPL-3.0

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import "../Token/ERC20/IERC20.sol";
+import "../Interface/IERC20.sol";
 import "./Address.sol";
 
 /**
