@@ -188,4 +188,11 @@ contract("MultiSigWallet", (accounts) => {
       "New signer address invalid."
     );
   });
+
+  it("should revert when trying to transferOwnership to signer", async () => {
+    await expectRevert(
+      walletInstance.transferOwnership(signer1, { from: owner }),
+      "Ownable: new owner cannot be signer."
+    );
+  });
 });

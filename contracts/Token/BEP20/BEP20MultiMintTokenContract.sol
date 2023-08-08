@@ -44,12 +44,12 @@ contract BEP20MultiMintTokenContract is Ownable{
   }
 
   modifier canTransfer() {
-    require(!locked || msg.sender == owner || msg.sender == ico);
+    require(!locked || msg.sender == owner() || msg.sender == ico);
     _;
   }
 
   modifier onlyAuthorized() {
-    require(msg.sender == owner || msg.sender == ico);
+    require(msg.sender == owner() || msg.sender == ico);
     _;
   }
 
