@@ -27,8 +27,11 @@ Tozex library is open source, allowing anyone to check, audit, and contribute to
 ### D) Multi-signature Token Contract to secure all fungible assets among co signers (until 10) used to deploy a specific governance token mechanism.
 
 - Up to 10 co signers allowed to confirm an outside transaction
-- Management of ERC20 fungible and ERC721 non fungible tokens
+- Management of ERC20 fungible and ERC721 non fungible tokens and ERC1155 tokens
 - Possibility to set up a dealline confirmation parameter for an outside transaction
+- Co signers cannot be removed by anyone.
+- Owner can update a co signer wallet if the co signers agreed by a confirmation. 
+- Owner cannot add new co signers when the contract is deployed.
 
 
 
