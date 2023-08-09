@@ -85,7 +85,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   }
 
   modifier notConfirmed(uint transactionId, address signer) {
-    require(!confirmations[transactionId][signer]);
+    require(!confirmations[transactionId][signer], "Transaction already confirmed");
     _;
   }
 
@@ -120,11 +120,20 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    */
   constructor (address[] memory _signers, uint _required) validRequirement(_signers.length, _required) {
     for (uint i = 0; i < _signers.length; i++) {
-      require(isSigner[_signers[i]] || _signers[i] != address(0));
+      require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender);
       isSigner[_signers[i]] = true;
     }
     signers = _signers;
     required = _required;
+  }
+
+  /**
+    * @dev Transfers ownership of the contract to a new account (`newOwner`).
+    * Can only be called by the current owner.
+    */
+  function transferOwnership(address newOwner) public override virtual onlyOwner {
+      require(!isSigner[newOwner], "Ownable: new owner cannot be signer.");
+      super.transferOwnership(newOwner);
   }
 
   /** 
@@ -135,6 +144,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   function requestSignerChange(address _oldSigner, address _newSigner) external onlyOwner {
     require(isSigner[_oldSigner], "Old signer does not exist.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
+    require(_newSigner != owner(), "Onwer cannot be a signer.");
 
     signerChangeRequests[_oldSigner] = _newSigner;
     emit SignerChangeRequested(_oldSigner, _newSigner);
