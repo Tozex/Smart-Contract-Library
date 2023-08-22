@@ -35,6 +35,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   mapping(address => address) public signerChangeRequests;
   mapping(address => bool) public isSigner;
   address[] public signers;
+  uint public signerCount;
   uint public required;
   uint public transactionCount;
 
@@ -46,41 +47,29 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   }
 
   struct Transaction {
+    bool executed;
     address payable destination;
     address token;
+    bytes data;
     TokenStandard ts;
     uint tokenId;
     uint value;
-    bytes data;
-    bool executed;
     uint confirmTimestamp;
     uint txTimestamp;
   }
 
-  
-  
-  modifier onlyWallet() {
-    require(msg.sender == address(this));
-    _;
-  }
-
-  modifier signerDoesNotExist(address signer) {
-    require(!isSigner[signer]);
-    _;
-  }
-
   modifier signerExists(address signer) {
-    require(isSigner[signer]);
+    require(isSigner[signer], "Signer does not exist");
     _;
   }
 
   modifier transactionExists(uint transactionId) {
-    require(transactions[transactionId].destination != address(0));
+    require(transactions[transactionId].destination != address(0), "Transaction does not exist");
     _;
   }
 
   modifier confirmed(uint transactionId, address signer) {
-    require(confirmations[transactionId][signer]);
+    require(confirmations[transactionId][signer], "Transaction is not confirmed by the signer");
     _;
   }
 
@@ -90,17 +79,17 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   }
 
   modifier notExecuted(uint transactionId) {
-    require(!transactions[transactionId].executed);
+    require(!transactions[transactionId].executed, "Transaction already executed");
     _;
   }
 
   modifier notNull(address _address) {
-    require(_address != address(0));
+    require(_address != address(0), "Address cannot be null");
     _;
   }
 
-  modifier validRequirement(uint signerCount, uint _required) {
-    require((signerCount <= MAX_OWNER_COUNT) || (required <= signerCount) || (_required != 0) || (signerCount != 0));
+  modifier validRequirement(uint _signerCount, uint _required) {
+    require(_signerCount <= MAX_OWNER_COUNT && required <= _signerCount && _required != 0 && _signerCount != 0, "Invalid requirement");
     _;
   }
 
@@ -119,10 +108,15 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param _required Number of required confirmations.
    */
   constructor (address[] memory _signers, uint _required) validRequirement(_signers.length, _required) {
-    for (uint i = 0; i < _signers.length; i++) {
-      require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender);
+    for (uint i = 0; i < _signers.length; ) {
+      require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender, "Invalid signer");
       isSigner[_signers[i]] = true;
+
+      unchecked {
+        i++;
+      }
     }
+    signerCount = _signers.length;
     signers = _signers;
     required = _required;
   }
@@ -158,11 +152,12 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   function confirmSignerChange(address _oldSigner, address _newSigner) external signerExists(msg.sender) {
     require(signerChangeRequests[_oldSigner] == _newSigner, "New signer address invalid.");
     require(_newSigner != address(0), "No pending signer update request.");
-    require(isSigner[_newSigner] == false, "New signer is already a signer.");
+    require(_newSigner != owner(), "Onwer cannot be a signer.");
+    require(!isSigner[_newSigner], "New signer is already a signer.");
 
     // Confirm the update by the current signer
     signerChangeRequests[_oldSigner] = address(0);
-    isSigner[_oldSigner] = false;
+    removeSigner(_oldSigner);
     isSigner[_newSigner] = true;
     signers.push(_newSigner);
     emit SignerUpdated(_oldSigner, _newSigner);
@@ -176,14 +171,12 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   }
 
   function depositERC721(address token, uint tokenId) external {
-    require(IERC721(token).ownerOf(tokenId) == msg.sender, "You must own the ERC721 token.");
     // Transfer the ERC721 token to the multisig contract
     IERC721(token).safeTransferFrom(msg.sender, address(this), tokenId);
     emit ERC721Deposited(msg.sender, token, tokenId);
   }
 
   function depositERC1155(address token, uint tokenId, uint amount) external {
-    require(IERC1155(token).balanceOf(msg.sender, tokenId) >= amount, "Insufficient ERC1155 balance.");
     // Transfer the ERC1155 tokens to the multisig contract
     IERC1155(token).safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
     emit ERC1155Deposited(msg.sender, token, tokenId, amount);
@@ -206,85 +199,31 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param transactionId Transaction ID.
    */
   function confirmTransaction(uint transactionId) public signerExists(msg.sender) transactionExists(transactionId) notConfirmed(transactionId, msg.sender) {
-    require(_getNow() < transactions[transactionId].txTimestamp + transactions[transactionId].confirmTimestamp * 1 seconds || transactions[transactionId].confirmTimestamp == 0);
+    require(!isTransactionTimedOut(transactionId), "Transaction timed out.");
     confirmations[transactionId][msg.sender] = true;
     emit Confirmation(msg.sender, transactionId);
     executeTransaction(transactionId);
   }
 
-
-  /**
-   * @dev Allows anyone to execute a confirmed transaction.
-   * @param transactionId Transaction ID.
-   */
-  function executeTransaction(uint transactionId) internal notExecuted(transactionId) {
-    if (isConfirmed(transactionId)) {
-      Transaction storage txn = transactions[transactionId];
-      
-      txn.executed = true;
-      if(txn.ts == TokenStandard.USER) {
-        require(address(this).balance >= txn.value, "not enough amount to withdraw");
-        (bool transferSuccess,) =txn.destination.call{value: txn.value}(txn.data);
-        if (transferSuccess)
-          emit Execution(transactionId);
-        else {
-          emit ExecutionFailure(transactionId);
-          txn.executed = false;
-        }
-      } else if(txn.ts == TokenStandard.ERC20) {
-        require(IERC20(txn.token).balanceOf(address(this)) >= txn.value, "not enough amount to withdraw");
-        IERC20(txn.token).safeTransfer(txn.destination, txn.value);
-        emit Execution(transactionId);
-      } else if(txn.ts == TokenStandard.ERC721) {
-        require(IERC721(txn.token).ownerOf(txn.tokenId) == address(this), "not enough amount to withdraw");
-        IERC721(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId);
-        emit Execution(transactionId);
-      } else if(txn.ts == TokenStandard.ERC1155) {
-        require(IERC1155(txn.token).balanceOf(address(this), txn.tokenId) >= txn.value, "not enough amount to withdraw");
-        IERC1155(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId, txn.value, "");
-        emit Execution(transactionId);
-      }
-    }
-  }
-  
   /**
    * @dev Returns the confirmation status of a transaction.
    * @param transactionId Transaction ID.
    */
   function isConfirmed(uint transactionId) public view returns (bool) {
     uint count = 0;
-    for (uint i = 0; i < signers.length; i++) {
-      if (confirmations[transactionId][signers[i]])
+    mapping(address => bool) storage transactionConfirmations = confirmations[transactionId];
+
+    for (uint i = 0; i < signerCount; ) {
+      if (transactionConfirmations[signers[i]])
         count += 1;
       if (count == required)
         return true;
+      
+      unchecked {
+        i++;
+      }
     }
     return false;
-  }
-
-  /**
-   * Internal functions
-   *
-   * @dev Adds a new transaction to the transaction mapping, if transaction does not exist yet.
-   * @param destination Transaction target address.
-   * @param value Transaction ether value.
-   * @param data Transaction data payload.
-   */
-  function addTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp, uint txTimestamp) internal notNull(destination) returns (uint transactionId) {
-    transactionId = transactionCount;
-    transactions[transactionId] = Transaction({
-      destination : destination,
-      token: token,
-      ts: ts,
-      tokenId: tokenId,
-      value : value,
-      data : data,
-      executed : false,
-      confirmTimestamp : confirmTimestamp,
-      txTimestamp : txTimestamp
-      });
-    transactionCount += 1;
-    emit Submission(transactionId);
   }
 
   /**
@@ -294,9 +233,16 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param transactionId Transaction ID.
    */
   function getConfirmationCount(uint transactionId) public view returns (uint count) {
-    for (uint i = 0; i < signers.length; i++)
-      if (confirmations[transactionId][signers[i]])
+    mapping(address => bool) storage transactionConfirmations = confirmations[transactionId];
+
+    for (uint i = 0; i < signerCount; ) {
+      if (transactionConfirmations[signers[i]])
         count += 1;
+      
+      unchecked {
+        i++;
+      }
+    }
   }
 
   /**
@@ -305,9 +251,14 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param executed Include executed transactions.
    */
   function getTransactionCount(bool pending, bool executed) public view returns (uint count) {
-    for (uint i = 0; i < transactionCount; i++)
-      if (pending && !transactions[i].executed || executed && transactions[i].executed)
+    for (uint i = 0; i < transactionCount; ) {
+      if ((pending && !transactions[i].executed && !isTransactionTimedOut(i)) || (executed && transactions[i].executed))
         count += 1;
+
+      unchecked {
+        i++;
+      }
+    }
   }
 
 
@@ -316,17 +267,31 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param transactionId Transaction ID.
    */
   function getConfirmations(uint transactionId) public view returns (address[] memory _confirmations) {
-    address[] memory confirmationsTemp = new address[](signers.length);
+    address[] memory confirmationsTemp = new address[](signerCount);
+    mapping(address => bool) storage transactionConfirmations = confirmations[transactionId];
     uint count = 0;
     uint i;
-    for (i = 0; i < signers.length; i++)
-      if (confirmations[transactionId][signers[i]]) {
+    
+    for (i = 0; i < signerCount; ) {
+      if (transactionConfirmations[signers[i]]) {
         confirmationsTemp[count] = signers[i];
         count += 1;
       }
+
+      unchecked {
+        i++;
+      }
+    }
+
     _confirmations = new address[](count);
-    for (i = 0; i < count; i++)
+
+    for (i = 0; i < count; ) {
       _confirmations[i] = confirmationsTemp[i];
+
+      unchecked {
+        i++;
+      }
+    }
   }
 
   /**
@@ -340,21 +305,29 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   {
     uint[] memory transactionIdsTemp = new uint[](transactionCount);
     uint count = 0;
-    uint i;
-    for (i = 0; i < transactionCount; i++)
-      if (pending && !transactions[i].executed
-      || executed && transactions[i].executed)
+
+    for (uint i = from; i < to; ) {
+      if ((pending && !transactions[i].executed && !isTransactionTimedOut(i))
+      || (executed && transactions[i].executed))
       {
         transactionIdsTemp[count] = i;
         count += 1;
       }
-    _transactionIds = new uint[](to - from);
-    for (i = from; i < to; i++)
-      _transactionIds[i - from] = transactionIdsTemp[i];
-  }
 
-  function _getNow() internal view returns (uint256) {
-      return block.timestamp;
+      unchecked {
+        i++;
+      }
+    }
+
+    _transactionIds = new uint[](count);
+
+    for (uint i = 0; i < count; ) {
+      _transactionIds[i] = transactionIdsTemp[i];
+
+      unchecked {
+        i++;
+      }
+    }
   }
 
   /**
@@ -390,4 +363,92 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   ) public virtual override returns (bytes4) {
       return this.onERC1155BatchReceived.selector;
   }
+
+  
+  /**
+   * Internal functions
+   *
+   * @dev Adds a new transaction to the transaction mapping, if transaction does not exist yet.
+   * @param destination Transaction target address.
+   * @param value Transaction ether value.
+   * @param data Transaction data payload.
+   */
+  function addTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp, uint txTimestamp) internal notNull(destination) returns (uint transactionId) {
+    transactionId = transactionCount;
+    transactions[transactionId] = Transaction({
+      destination : destination,
+      token: token,
+      ts: ts,
+      tokenId: tokenId,
+      value : value,
+      data : data,
+      executed : false,
+      confirmTimestamp : confirmTimestamp,
+      txTimestamp : txTimestamp
+      });
+    transactionCount += 1;
+    emit Submission(transactionId);
+  }
+
+
+  /**
+   * @dev Allows anyone to execute a confirmed transaction.
+   * @param transactionId Transaction ID.
+   */
+  function executeTransaction(uint transactionId) internal notExecuted(transactionId) {
+    if (isConfirmed(transactionId)) {
+      Transaction storage txn = transactions[transactionId];
+      
+      txn.executed = true;
+      if(txn.ts == TokenStandard.USER) {
+        require(address(this).balance >= txn.value, "not enough amount to withdraw");
+        (bool transferSuccess,) =txn.destination.call{value: txn.value}(txn.data);
+        if (transferSuccess)
+          emit Execution(transactionId);
+        else {
+          emit ExecutionFailure(transactionId);
+          txn.executed = false;
+        }
+      } else if(txn.ts == TokenStandard.ERC20) {
+        IERC20(txn.token).safeTransfer(txn.destination, txn.value);
+        emit Execution(transactionId);
+      } else if(txn.ts == TokenStandard.ERC721) {
+        IERC721(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId);
+        emit Execution(transactionId);
+      } else if(txn.ts == TokenStandard.ERC1155) {
+        IERC1155(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId, txn.value, "");
+        emit Execution(transactionId);
+      }
+    }
+  }
+
+  function isTransactionTimedOut(uint transactionId) internal view returns (bool) {
+    Transaction memory transaction = transactions[transactionId];
+    if(_getNow() < transaction.txTimestamp + transaction.confirmTimestamp || transaction.confirmTimestamp == 0) {
+      return false;
+    }
+    return true;
+  }
+
+  function removeSigner(address oldSigner) internal {
+    if (!isSigner[oldSigner]) return;
+
+    for (uint i = 0; i < signerCount; ) {
+      if (signers[i] == oldSigner) {
+          signers[i] = signers[signerCount - 1];
+          signers.pop();
+          isSigner[oldSigner] = false;
+          break;
+      }
+
+      unchecked {
+        i++;
+      }
+    }
+  }
+
+  function _getNow() internal view returns (uint256) {
+      return block.timestamp;
+  }
+
 }
