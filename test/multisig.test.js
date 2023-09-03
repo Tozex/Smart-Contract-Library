@@ -7,12 +7,12 @@ const ERC1155 = artifacts.require('MockERC1155');
 
 contract("MultiSigWallet", (accounts) => {
   let walletInstance;
-  const [owner, signer1, signer2, signer3, otherUser, otherUser1] = accounts;
+  const [owner, signer1, signer2, signer3, signer4, signer5, otherUser, otherUser1] = accounts;
 
 
   beforeEach(async () => {
     const requiredSignatures = 2; // Number of required signatures for a transaction
-    const initialSigners = [signer1, signer2]; // Initial signers for the wallet
+    const initialSigners = [signer1, signer2, signer4, signer5]; // Initial signers for the wallet
 
     walletInstance = await MultiSigWallet.new(initialSigners, requiredSignatures, {from: owner});
 
@@ -153,6 +153,18 @@ contract("MultiSigWallet", (accounts) => {
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 });
 
     // Check if the new signer has been added
+    assert.equal(await walletInstance.isSigner(signer3), false, "New signer should not be added");
+
+    // Confirm the signer change by the new signer
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer4 });
+
+    // Check if the new signer has been added
+    assert.equal(await walletInstance.isSigner(signer3), false, "New signer should not be added");
+
+    // Confirm the signer change by the new signer
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer5 });
+
+    // Check if the new signer has been added
     assert.isTrue(await walletInstance.isSigner(signer3), "New signer should be added");
   });
 
@@ -181,11 +193,13 @@ contract("MultiSigWallet", (accounts) => {
 
     // Confirm the signer change by the new signer
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 });
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer4 });
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer5 });
 
     // Try to confirm the signer change again with the same new signer
     await expectRevert(
       walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 }),
-      "New signer address invalid."
+      "You already confirmed"
     );
   });
 
