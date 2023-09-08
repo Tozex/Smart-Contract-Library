@@ -139,6 +139,11 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
     require(isSigner[_oldSigner], "Old signer does not exist.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
     require(_newSigner != owner(), "Onwer cannot be a signer.");
+    
+    // Clear the signerChangeConfirmations for _newSigner if a change is "in-progress"
+    if (signerChangeRequests[_oldSigner] != address(0)) {
+        clearSignerChangeConfirmations(signerChangeRequests[_oldSigner]);
+    }
 
     signerChangeRequests[_oldSigner] = _newSigner;
     emit SignerChangeRequested(_oldSigner, _newSigner);
@@ -165,6 +170,9 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
       isSigner[_newSigner] = true;
       signers.push(_newSigner);
       emit SignerUpdated(_oldSigner, _newSigner);
+
+      // Clear the signerChangeConfirmations for _newSigner
+      clearSignerChangeConfirmations(_newSigner);
     }
   }
 
@@ -477,6 +485,20 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
       unchecked {
         i++;
       }
+    }
+  }
+
+  function clearSignerChangeConfirmations(address _newSigner) internal {
+    uint256 signerCount = signers.length;
+
+    mapping(address => bool) storage confirmation = signerChangeConfirmations[_newSigner];
+
+    for (uint i = 0; i < signerCount; ) {
+        confirmation[signers[i]] = false;
+
+        unchecked {
+          i++;
+        }
     }
   }
 
