@@ -25,7 +25,7 @@ More information : <https://medium.com/tozex/tozex-smart-contract-library-6aaca5
 This enum is used to identify the type of token used in the submitted transaction.
 
 | Enum variable | Description |
-| ------ | ------ | ------ |
+| ------ | ------ |
 | ERC20 | represents the ERC20 token
 | ERC721 | represents the ERC721 token
 | ERC1155 | represents the ERC1155 token
