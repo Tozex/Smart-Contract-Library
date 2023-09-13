@@ -23,7 +23,9 @@ More information : <https://medium.com/tozex/tozex-smart-contract-library-6aaca5
 ### Variable Enum TokenStandard
 
 This enum is used to identify the type of token used in the submitted transaction.
+
 | Enum variable | Description |
+| ------ | ------ | ------ |
 | ERC20 | represents the ERC20 token
 | ERC721 | represents the ERC721 token
 | ERC1155 | represents the ERC1155 token
@@ -43,7 +45,7 @@ This enum is used to identify the type of token used in the submitted transactio
 | confirmTimestamp |  uint | Countdown to confirm a submitted transaction. In the case the countdown limit is reached the submitted transaction will not be spendable. A zero value means to have an infinite time to confirm the submitted transaction.
 | txTimestamp |  uint | The timestamp corresponding to submitted transaction.
 
-##### Function payable()
+#### Function payable()
 
 This function allows the MultisigWallet Contract to receive ether.
 
@@ -55,47 +57,47 @@ The constructor get the signers's wallet address allowing them to interact with 
 
 This function allows the owner to transfer the ownership of the MultiSigWallet to another address. The owner can't be a signer.
 
-##### Function requestSignerChange()
+#### Function requestSignerChange()
 
 This function allows the owner to submit a request to change a signer. The owner can't be a signer.
 
-##### Function confirmSignerChange()
+#### Function confirmSignerChange()
 
 This function allows the signers to confirm a pending signer change request. The request is executed automatically when the required number of signers is reached.
 
-##### Functions depositERC20(), depositERC721() and depositERC1155()
+#### Functions depositERC20(), depositERC721() and depositERC1155()
 
 This functions allows the deposit of ERC20, ERC721 and 1155 tokens on the MultiSigWallet.
 
-##### Function submitTransaction()
+#### Function submitTransaction()
 
 This function allows signers to submit a transaction to be confirmed by signers. A signer submitting the spendable transaction is confirming it by default.
 
-##### Function confirmTransaction()
+#### Function confirmTransaction()
 
 This function allows the signers to confirm a pending spendable transaction on the remaining period timespan. If the number of confirmation is reached the spendable transaction is executed. If the remaining period timespan is reached the spendable transaction is permanently frozen and can no longer be confirmed and excuted.
 
-##### Function isConfirmed()
+#### Function isConfirmed()
 
 This function checks if a submitted spendable transaction has the number of requiered confirmation needed to execute it.
 
-##### Function getConfirmationCount()
+#### Function getConfirmationCount()
 
 This function checks the number of confirmation of a submitted spendable transaction received.
 
-##### Function getTransactionCount()
+#### Function getTransactionCount()
 
 This function checks the number submitted spendable transactions depending on whether it is pending and executed or not.
 
-##### Function getConfirmations()
+#### Function getConfirmations()
 
 This function returns the addresses of signers who confirmed a submitted spendable transaction.
 
-##### Function getTransactionIds()
+#### Function getTransactionIds()
 
 This function checks the data of spendable transaction (is the transaction id is include between "from" and "to", is the transaction pending, is the transaction executed). This function returns the transactions that corresponds to the parameters.
 
-##### Functions on onERC721Received(), onERC1155Received(),and onERC1155BatchReceived()
+#### Functions on onERC721Received(), onERC1155Received(),and onERC1155BatchReceived()
 
 These functions are used to receive ERC721 and ERC1155 tokens. See the ERC721 and ERC1155 documentation for more information.
 
@@ -103,26 +105,26 @@ These functions are used to receive ERC721 and ERC1155 tokens. See the ERC721 an
 
 This function is called by submitTransaction() allowing to add a "transactionId" to identify the submitted transaction.
 
-##### Function executeTransaction()
+#### Function executeTransaction()
 
 This function is called in confirmTransaction() when the number of signatures needed is reached allowing to execute the submitted spendable transaction.
 
-##### Function isTransactionTimedOut()
+#### Function isTransactionTimedOut()
 
 This function is called in confirmTransaction(). When the remaining period is reached, confirmations can no longer take place so the transaction is permanently frozen
 
-##### Function isSignerChangeConfirmed()
+#### Function isSignerChangeConfirmed()
 
 This function is called by confirmSignerChange(), it checks if a pending signer change request has the number of requiered confirmation needed to execute it. The function returns true if the required number of signers is reached.
 
-##### Function removeSigner()
+#### Function removeSigner()
 
 This function is called by confirmSignerChange(), it removes a signer from the MultiSigWallet.
 
-##### Function clearSignerChangeConfirmations()
+#### Function clearSignerChangeConfirmations()
 
 This function called by confirmSignerChange() and requestSignerChange(), it clears the confirations for the signer change request.
 
-##### Function getNow()
+#### Function getNow()
 
 This function returns the current timestamp.
