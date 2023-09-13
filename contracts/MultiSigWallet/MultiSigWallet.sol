@@ -164,7 +164,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
     // Confirm the update by the current signer
     signerChangeConfirmations[_newSigner][msg.sender] = true;
     
-    if (isSignerChangeConfirmed(_oldSigner, _newSigner)) {
+    if (isSignerChangeConfirmed(_newSigner)) {
       signerChangeRequests[_oldSigner] = address(0);
       removeSigner(_oldSigner);
       isSigner[_newSigner] = true;
@@ -201,7 +201,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param value Transaction ether value.
    * @param data Transaction data payload.
    */
-  function submitTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp) public returns (uint transactionId) {
+  function submitTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp) public signerExists(msg.sender) returns (uint transactionId) {
     uint txTimestamp = _getNow();
     transactionId = addTransaction(destination, token, ts, tokenId, value, data, confirmTimestamp, txTimestamp);
     confirmTransaction(transactionId);
@@ -451,21 +451,20 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
     return true;
   }
 
-  function isSignerChangeConfirmed(address _oldSigner, address _newSigner) internal view returns (bool) {
+  function isSignerChangeConfirmed(address _newSigner) internal view returns (bool) {
     uint256 signerCount = signers.length;
-
+    uint256 count;
     mapping(address => bool) storage confirmation = signerChangeConfirmations[_newSigner];
 
-    for (uint i = 0; i < signerCount; ) {
-      if (signers[i] != _oldSigner && !confirmation[signers[i]]) {
-        return false;
-      }
+    for (uint i = 0; i < signerCount && count < required; ) {
+      if (confirmation[signers[i]]) count ++;
       
       unchecked {
         i++;
       }
     }
-    return true;
+
+    return count == required;
   }
 
   function removeSigner(address oldSigner) internal {

@@ -159,13 +159,7 @@ contract("MultiSigWallet", (accounts) => {
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer4 });
 
     // Check if the new signer has been added
-    assert.equal(await walletInstance.isSigner(signer3), false, "New signer should not be added");
-
-    // Confirm the signer change by the new signer
-    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer5 });
-
-    // Check if the new signer has been added
-    assert.isTrue(await walletInstance.isSigner(signer3), "New signer should be added");
+    assert.equal(await walletInstance.isSigner(signer3), true, "New signer should not be added");
   });
 
   it("should revert when confirming a signer change with an invalid new signer", async () => {
@@ -194,7 +188,6 @@ contract("MultiSigWallet", (accounts) => {
     // Confirm the signer change by the new signer
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 });
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer4 });
-    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer5 });
     
     assert.equal(await walletInstance.isSigner(signer1), false, "signer change confirmed");
     assert.isTrue(await walletInstance.isSigner(signer3), "signer change confirmed");
