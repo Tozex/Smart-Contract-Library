@@ -101,7 +101,7 @@ This function checks the data of spendable transaction (is the transaction id is
 
 These functions are used to receive ERC721 and ERC1155 tokens. See the ERC721 and ERC1155 documentation for more information.
 
-##### Function addTransaction()
+#### Function addTransaction()
 
 This function is called by submitTransaction() allowing to add a "transactionId" to identify the submitted transaction.
 
