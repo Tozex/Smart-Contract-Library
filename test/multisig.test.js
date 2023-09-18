@@ -187,7 +187,7 @@ contract("MultiSigWallet", (accounts) => {
 
     // Confirm the signer change by the new signer
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 });
-    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer4 });
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer1 });
     
     assert.equal(await walletInstance.isSigner(signer1), false, "signer change confirmed");
     assert.isTrue(await walletInstance.isSigner(signer3), "signer change confirmed");
@@ -197,7 +197,8 @@ contract("MultiSigWallet", (accounts) => {
       walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 }),
       "New signer address invalid."
     );
-
+    
+    assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer1), false, "confirmation cleared");
     assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer2), false, "confirmation cleared");
     assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer4), false, "confirmation cleared");
     assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer5), false, "confirmation cleared");

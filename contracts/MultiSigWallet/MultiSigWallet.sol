@@ -165,14 +165,14 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
     signerChangeConfirmations[_newSigner][msg.sender] = true;
     
     if (isSignerChangeConfirmed(_newSigner)) {
+      // Clear the signerChangeConfirmations for _newSigner
+      clearSignerChangeConfirmations(_newSigner);
+
       signerChangeRequests[_oldSigner] = address(0);
       removeSigner(_oldSigner);
       isSigner[_newSigner] = true;
       signers.push(_newSigner);
       emit SignerUpdated(_oldSigner, _newSigner);
-
-      // Clear the signerChangeConfirmations for _newSigner
-      clearSignerChangeConfirmations(_newSigner);
     }
   }
 
@@ -180,7 +180,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
     require(token != address(0) , "invalid token");
     require(amount > 0 , "invalid amount");
     IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-    emit ERC20Deposited(msg.sender, token, amount);
+    emit ERC20Deposited(msg.sender, token, amount); 
   }
 
   function depositERC721(address token, uint tokenId) external {
