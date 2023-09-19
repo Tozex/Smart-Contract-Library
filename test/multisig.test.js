@@ -7,23 +7,23 @@ const ERC1155 = artifacts.require('MockERC1155');
 
 contract("MultiSigWallet", (accounts) => {
   let walletInstance;
-  const [owner, signer1, signer2, signer3, otherUser, otherUser1] = accounts;
+  const [owner, signer1, signer2, signer3, signer4, signer5, signer6, otherUser, otherUser1] = accounts;
 
 
   beforeEach(async () => {
     const requiredSignatures = 2; // Number of required signatures for a transaction
-    const initialSigners = [signer1, signer2]; // Initial signers for the wallet
+    const initialSigners = [signer1, signer2, signer4, signer5]; // Initial signers for the wallet
 
-    walletInstance = await MultiSigWallet.new(initialSigners, requiredSignatures, {from: owner});
+    walletInstance = await MultiSigWallet.new(initialSigners, requiredSignatures, { from: owner });
 
-    erc20 = await ERC20.new("Tozex token", "TOZ", {from: owner});
-    erc721 = await ERC721.new({from: owner});
-    erc1155 = await ERC1155.new({from: owner});
-    await erc20.mint(walletInstance.address, web3.utils.toWei("100000000", "ether"), {from:owner});
-    await erc721.mint(walletInstance.address, 1, {from:owner});
-    await erc721.mint(walletInstance.address, 2, {from:owner});
-    await erc1155.mint(walletInstance.address, 1, 1000, "0x", {from:owner});
-    await erc1155.mint(walletInstance.address, 2, 1000, "0x", {from:owner});
+    erc20 = await ERC20.new("Tozex token", "TOZ", { from: owner });
+    erc721 = await ERC721.new({ from: owner });
+    erc1155 = await ERC1155.new({ from: owner });
+    await erc20.mint(walletInstance.address, web3.utils.toWei("100000000", "ether"), { from: owner });
+    await erc721.mint(walletInstance.address, 1, { from: owner });
+    await erc721.mint(walletInstance.address, 2, { from: owner });
+    await erc1155.mint(walletInstance.address, 1, 1000, "0x", { from: owner });
+    await erc1155.mint(walletInstance.address, 2, 1000, "0x", { from: owner });
   });
 
   it("should confirm, revoke, and execute a transaction", async () => {
@@ -153,7 +153,13 @@ contract("MultiSigWallet", (accounts) => {
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 });
 
     // Check if the new signer has been added
-    assert.isTrue(await walletInstance.isSigner(signer3), "New signer should be added");
+    assert.equal(await walletInstance.isSigner(signer3), false, "New signer should not be added");
+
+    // Confirm the signer change by the new signer
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer4 });
+
+    // Check if the new signer has been added
+    assert.equal(await walletInstance.isSigner(signer3), true, "New signer should be added");
   });
 
   it("should revert when confirming a signer change with an invalid new signer", async () => {
@@ -181,12 +187,35 @@ contract("MultiSigWallet", (accounts) => {
 
     // Confirm the signer change by the new signer
     await walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 });
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer1 });
+    
+    assert.equal(await walletInstance.isSigner(signer1), false, "signer change confirmed");
+    assert.isTrue(await walletInstance.isSigner(signer3), "signer change confirmed");
 
     // Try to confirm the signer change again with the same new signer
     await expectRevert(
       walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 }),
       "New signer address invalid."
     );
+    
+    assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer1), false, "confirmation cleared");
+    assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer2), false, "confirmation cleared");
+    assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer4), false, "confirmation cleared");
+    assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer5), false, "confirmation cleared");
+  });
+
+  it("should reset signerChangeConfirmations when request again", async () => {
+    // Request a signer change by the owner
+    await walletInstance.requestSignerChange(signer1, signer3, { from: owner });
+
+    // Confirm the signer change by the new signer
+    await walletInstance.confirmSignerChange(signer1, signer3, { from: signer2 });
+
+    assert.isTrue(await walletInstance.signerChangeConfirmations(signer3, signer2), "Confirmed by signer2");
+
+    await walletInstance.requestSignerChange(signer1, signer6, { from: owner });
+
+    assert.equal(await walletInstance.signerChangeConfirmations(signer3, signer2), false, "confirmation cleared");
   });
 
   it("should revert when trying to transferOwnership to signer", async () => {

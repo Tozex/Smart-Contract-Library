@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 /// @title Multisignature wallet by TOZEX inspired by Gnosis Multisignature project for which we added new functionalities like transaction countdown validation and ERC20/ERC721/ERC1155 tokens management.
 /// @author Tozex company
 
+import "../OpenZeppelin/Math.sol";
 import "../OpenZeppelin/SafeERC20.sol";
 import "../OpenZeppelin/Ownable.sol";
 import "../OpenZeppelin/IERC721Receiver.sol";
@@ -33,9 +34,9 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   mapping(uint => Transaction) public transactions;
   mapping(uint => mapping(address => bool)) public confirmations;
   mapping(address => address) public signerChangeRequests;
+  mapping(address => mapping(address => bool)) public signerChangeConfirmations;
   mapping(address => bool) public isSigner;
   address[] public signers;
-  uint public signerCount;
   uint public required;
   uint public transactionCount;
 
@@ -116,7 +117,6 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
         i++;
       }
     }
-    signerCount = _signers.length;
     signers = _signers;
     required = _required;
   }
@@ -139,6 +139,11 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
     require(isSigner[_oldSigner], "Old signer does not exist.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
     require(_newSigner != owner(), "Onwer cannot be a signer.");
+    
+    // Clear the signerChangeConfirmations for _newSigner if a change is "in-progress"
+    if (signerChangeRequests[_oldSigner] != address(0)) {
+        clearSignerChangeConfirmations(signerChangeRequests[_oldSigner]);
+    }
 
     signerChangeRequests[_oldSigner] = _newSigner;
     emit SignerChangeRequested(_oldSigner, _newSigner);
@@ -150,24 +155,32 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param _newSigner The address of the new signer to be added.
    */
   function confirmSignerChange(address _oldSigner, address _newSigner) external signerExists(msg.sender) {
+    require(!signerChangeConfirmations[_newSigner][msg.sender], "You already confirmed.");
     require(signerChangeRequests[_oldSigner] == _newSigner, "New signer address invalid.");
     require(_newSigner != address(0), "No pending signer update request.");
     require(_newSigner != owner(), "Onwer cannot be a signer.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
 
     // Confirm the update by the current signer
-    signerChangeRequests[_oldSigner] = address(0);
-    removeSigner(_oldSigner);
-    isSigner[_newSigner] = true;
-    signers.push(_newSigner);
-    emit SignerUpdated(_oldSigner, _newSigner);
+    signerChangeConfirmations[_newSigner][msg.sender] = true;
+    
+    if (isSignerChangeConfirmed(_newSigner)) {
+      // Clear the signerChangeConfirmations for _newSigner
+      clearSignerChangeConfirmations(_newSigner);
+
+      signerChangeRequests[_oldSigner] = address(0);
+      removeSigner(_oldSigner);
+      isSigner[_newSigner] = true;
+      signers.push(_newSigner);
+      emit SignerUpdated(_oldSigner, _newSigner);
+    }
   }
 
   function depositERC20(address token, uint amount) external {
     require(token != address(0) , "invalid token");
     require(amount > 0 , "invalid amount");
     IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-    emit ERC20Deposited(msg.sender, token, amount);
+    emit ERC20Deposited(msg.sender, token, amount); 
   }
 
   function depositERC721(address token, uint tokenId) external {
@@ -188,7 +201,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param value Transaction ether value.
    * @param data Transaction data payload.
    */
-  function submitTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp) public returns (uint transactionId) {
+  function submitTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp) public signerExists(msg.sender) returns (uint transactionId) {
     uint txTimestamp = _getNow();
     transactionId = addTransaction(destination, token, ts, tokenId, value, data, confirmTimestamp, txTimestamp);
     confirmTransaction(transactionId);
@@ -213,6 +226,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
     uint count = 0;
     mapping(address => bool) storage transactionConfirmations = confirmations[transactionId];
 
+    uint256 signerCount = signers.length;
     for (uint i = 0; i < signerCount; ) {
       if (transactionConfirmations[signers[i]])
         count += 1;
@@ -235,6 +249,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   function getConfirmationCount(uint transactionId) public view returns (uint count) {
     mapping(address => bool) storage transactionConfirmations = confirmations[transactionId];
 
+    uint256 signerCount = signers.length;
     for (uint i = 0; i < signerCount; ) {
       if (transactionConfirmations[signers[i]])
         count += 1;
@@ -267,6 +282,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param transactionId Transaction ID.
    */
   function getConfirmations(uint transactionId) public view returns (address[] memory _confirmations) {
+    uint256 signerCount = signers.length;
     address[] memory confirmationsTemp = new address[](signerCount);
     mapping(address => bool) storage transactionConfirmations = confirmations[transactionId];
     uint count = 0;
@@ -303,7 +319,12 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    */
   function getTransactionIds(uint from, uint to, bool pending, bool executed) public view returns (uint[] memory _transactionIds)
   {
-    uint[] memory transactionIdsTemp = new uint[](transactionCount);
+    require(from < to, "Invalid range: from must be less than to");
+
+    from = Math.min(from, transactionCount);
+    to = Math.max(to, transactionCount);
+    
+    uint[] memory transactionIdsTemp = new uint[](to - from);
     uint count = 0;
 
     for (uint i = from; i < to; ) {
@@ -423,19 +444,38 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   }
 
   function isTransactionTimedOut(uint transactionId) internal view returns (bool) {
-    Transaction memory transaction = transactions[transactionId];
+    Transaction storage transaction = transactions[transactionId];
     if(_getNow() < transaction.txTimestamp + transaction.confirmTimestamp || transaction.confirmTimestamp == 0) {
       return false;
     }
     return true;
   }
 
+  function isSignerChangeConfirmed(address _newSigner) internal view returns (bool) {
+    uint256 signerCount = signers.length;
+    uint256 count;
+    mapping(address => bool) storage confirmation = signerChangeConfirmations[_newSigner];
+
+    for (uint i = 0; i < signerCount && count < required; ) {
+      if (confirmation[signers[i]]) count ++;
+      
+      unchecked {
+        i++;
+      }
+    }
+
+    return count == required;
+  }
+
   function removeSigner(address oldSigner) internal {
     if (!isSigner[oldSigner]) return;
 
+    uint256 signerCount = signers.length;
     for (uint i = 0; i < signerCount; ) {
       if (signers[i] == oldSigner) {
-          signers[i] = signers[signerCount - 1];
+          if (i != signerCount - 1) {
+            signers[i] = signers[signerCount - 1];
+          }
           signers.pop();
           isSigner[oldSigner] = false;
           break;
@@ -444,6 +484,20 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
       unchecked {
         i++;
       }
+    }
+  }
+
+  function clearSignerChangeConfirmations(address _newSigner) internal {
+    uint256 signerCount = signers.length;
+
+    mapping(address => bool) storage confirmation = signerChangeConfirmations[_newSigner];
+
+    for (uint i = 0; i < signerCount; ) {
+        confirmation[signers[i]] = false;
+
+        unchecked {
+          i++;
+        }
     }
   }
 
