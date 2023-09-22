@@ -12,12 +12,12 @@ More information : <https://medium.com/tozex/tozex-smart-contract-library-6aaca5
 | Variable | Type | Description |
 | ------ | ------ | ------ |
 | transactions | public mapping (uint => Transaction) | Associate an id to each transaction
-| confirmations | public mapping (uint => mapping (address => bool)) | Allowing to confirm or check a confirmation on a transaction
+| confirmations | public mapping (uint => mapping (address => bool)) | Allowing to confirm or check a confirmation on a transaction by a signer
 | signerChangeRequests | public mapping (address => address) | Stores the pending signer change requests
 | isSigner | public mapping (address => bool)  | Variable used to check the wallet owner actions (submit or confirm transaction)
 | signers | public address[] | Addresses of the signers of the multisig wallet
 | signerCount | public uint | Number of signers of the multisig wallet
-| required | public uint | Required number of owner's signature needed to execute a submitted transaction.
+| required | public uint | Required number of signer's signature needed to execute a submitted transaction.
 | transactionCount | public uint | Number of transactions on the MultisigWallet
 
 ### Variable Enum TokenStandard
@@ -29,57 +29,61 @@ This enum is used to identify the type of token used in the submitted transactio
 | ERC20 | represents the ERC20 token
 | ERC721 | represents the ERC721 token
 | ERC1155 | represents the ERC1155 token
-| USER | represents the native token of the blockchain used
+| USER | represents the native token of the blockchain used. For example, ETH on Ethereum
 
 ### Variable Struct Transaction
 
 | Struct variable | Type | Description |
 | ------ | ------ | ------ |
-| executed  | bool | Check the state of an executed transaction
+| executed  | bool | Check the state of a transaction, if it is executed or not
 | destination | address | Ethereum Wallet where the "value" will be sent
-| token | address | Address of the token contract
+| token | address | Address of the token contract, if the transaction is with the native token of the blockchain, you can put any address
 | data | bytes | Method id of the submitted transaction
-| ts | TokenStandard (Enum) | Type of token used in the submitted transaction
-| tokenId | uint | In case of ERC721 or ERC1155 token, the tokenId is used to identify the token
+| ts | TokenStandard (Enum) | Type of token used in the submitted transaction (0 = ERC20, 1 = ERC721, 2 = ERC1155, 3 = USER)
+| tokenId | uint | In case of ERC721 or ERC1155 token, the tokenId is used to identify the token, if the transaction is with a ERC20 or the native token of the blockchain, you can put any uint
 | value | uint | Amount of tokens sent
-| confirmTimestamp |  uint | Countdown to confirm a submitted transaction. In the case the countdown limit is reached the submitted transaction will not be spendable. A zero value means to have an infinite time to confirm the submitted transaction.
-| txTimestamp |  uint | The timestamp corresponding to submitted transaction.
+| confirmTimestamp |  uint | The timestamp from which the transaction will expire. A zero value means you have an infinite time to confirm the submitted transaction.
+| txTimestamp |  uint | The timestamp of when the transaction was submitted.
 
 #### Function payable()
 
-This function allows the MultisigWallet Contract to receive ether.
+This function allows the MultisigWallet Contract to receive the native token of the blockchain. It emit an event.
 
 #### Constructor
 
-The constructor get the signers's wallet address allowing them to interact with MultiSigWallet. Minimum number of signatures required to confirm a spendable transaction and signer change request.
+The constructor sets :
+
+* The signers wallet address allowing them to interact with MultiSigWallet.
+* Minimum number of signatures required to confirm a spendable transaction and signer change request.
+* The owner wallet is set by default to the address that deployed the contract.
 
 #### Function transferOwnership()
 
-This function allows the owner to transfer the ownership of the MultiSigWallet to another address. The owner can't be a signer.
+This function allows the owner to transfer the ownership of the MultiSigWallet to another address. The new owner can't be a signer.
 
 #### Function requestSignerChange()
 
-This function allows the owner to submit a request to change a signer. The owner can't be a signer.
+This function allows the owner to submit a request to change a signer. The new signer can't be the owner.
 
 #### Function confirmSignerChange()
 
-This function allows the signers to confirm a pending signer change request. The request is executed automatically when the required number of signers is reached.
+This function allows the signers to confirm a pending signer change request. The request is executed automatically when the required number of signatures is reached.
 
 #### Functions depositERC20(), depositERC721() and depositERC1155()
 
-This functions allows the deposit of ERC20, ERC721 and 1155 tokens on the MultiSigWallet.
+This functions allows the deposit of ERC20, ERC721 and 1155 tokens on the MultiSigWallet when a allowance is set on the token contract.
 
 #### Function submitTransaction()
 
-This function allows signers to submit a transaction to be confirmed by signers. A signer submitting the spendable transaction is confirming it by default.
+This function allows signers to submit a transaction to be confirmed by signers. A signer submitting the spendable transaction is confirm it automatically.
 
 #### Function confirmTransaction()
 
-This function allows the signers to confirm a pending spendable transaction on the remaining period timespan. If the number of confirmation is reached the spendable transaction is executed. If the remaining period timespan is reached the spendable transaction is permanently frozen and can no longer be confirmed and excuted.
+This function allows the signers to confirm a pending spendable transaction. If the number of confirmation is reached the spendable transaction is executed. If the cutoff timestamp to confirm the transaction has passed, the spendable transaction is permanently frozen and can no longer be confirmed and executed.
 
 #### Function isConfirmed()
 
-This function checks if a submitted spendable transaction has the number of requiered confirmation needed to execute it.
+This function checks if a submitted spendable transaction has the number of requiered confirmation and had been execute.
 
 #### Function getConfirmationCount()
 
@@ -87,7 +91,7 @@ This function checks the number of confirmation of a submitted spendable transac
 
 #### Function getTransactionCount()
 
-This function checks the number submitted spendable transactions depending on whether it is pending and executed or not.
+This function checks the number of submitted spendable transactions.
 
 #### Function getConfirmations()
 
@@ -119,11 +123,11 @@ This function is called by confirmSignerChange(), it checks if a pending signer 
 
 #### Function removeSigner()
 
-This function is called by confirmSignerChange(), it removes a signer from the MultiSigWallet.
+This function is called by confirmSignerChange(), it removes a signer from the MultiSigWallet when the required number of signatures is reached.
 
 #### Function clearSignerChangeConfirmations()
 
-This function called by confirmSignerChange() and requestSignerChange(), it clears the confirations for the signer change request.
+This function called by confirmSignerChange() and requestSignerChange(), it clears the confirmations for the signer change request.
 
 #### Function getNow()
 
