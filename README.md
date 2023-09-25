@@ -7,8 +7,8 @@ The development of a smart contract code requires deep expertise in computer sci
 Tozex library is open source, allowing anyone to check, audit, and contribute to our development. The first programming language of our library is based on Solidity to allow for deployment first on the Ethereum (ETH), Polygon ZKEVM,  Binance Smart Chain & Avalanche blockchain networks compatible with any EVM Blockchain Solidity protocol. 
 
 ### A) Fungible Token contract based on the ERC20 standard including some custom and audited functions by design like : 
-- Vested Wallet or Smart contract function used to protect the interest of the project to ensure the entire control of your crypto assets from hackers, none compliant investors/wallets or undesirable market making bots.
-- Burn and mint token function with EIP-2309, a Consecutive Transfer Extension, which enables minting any number of tokens in a single transaction to multiple wallets.
+- Blacklited Wallet or Smart contract function used to protect the interest of the project to ensure the entire control of your crypto assets from hackers, none compliant investors/wallets or undesirable market making bots.
+- Batch Burn and mint token function which enables minting any number of tokens in a single transaction to multiple wallets.
 - Multi ownership function allowing to have a maximum of two owners to comply with a DAO demand.
 
 ### B) Non Fungible Token Contract based on ERC721/ERC1155 standard including some customized and audited functions by design like : 
@@ -30,9 +30,10 @@ Tozex library is open source, allowing anyone to check, audit, and contribute to
 - Possibility to set up a dealline confirmation parameter for an outside transaction
 - The Multisig Vault is adding the support of ERC721/ERC1155 non Fungible tokens.
 - Goverance features :
-    - Co signers cannot be removed by anyone when the Multisig contract is deployed
-    - Owner can update a co signer wallet if the co signer grant it by a confirmation.
-    - Owner cannot add new co signers when the contract is deployed
+    - Co signers cannot be removed by the owner
+    - Owner is not a Co signer & cannot add new Co signers
+    - Any Co signer can update his wallet by asking the confirmations to other co signers.
+  
 
 
 
