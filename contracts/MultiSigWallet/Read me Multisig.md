@@ -12,11 +12,11 @@ More information : <https://medium.com/tozex/tozex-smart-contract-library-6aaca5
 | Variable | Type | Description |
 | ------ | ------ | ------ |
 | transactions | public mapping (uint => Transaction) | Associate an id to each transaction
-| confirmations | public mapping (uint => mapping (address => bool)) | Allowing to confirm or check a confirmation on a transaction by a signer
+| confirmations | public mapping (uint => mapping (address => bool)) | Allowing to confirm or check a confirmation on a transaction by a signer using the transaction id
 | signerChangeRequests | public mapping (address => address) | Stores the pending signer change requests
-| isSigner | public mapping (address => bool)  | Variable used to check the wallet owner actions (submit or confirm transaction)
+| signerChangeConfirmations | public (address => mapping(address => bool)) | Allowing to confirm or check a confirmation on a signer change request by a signer. The first address is the address of the new signer of the pending change request and the second address is the address of the signer who confirm the change request.
+| isSigner | public mapping (address => bool)  | Variable used to check if an address has signers rights
 | signers | public address[] | Addresses of the signers of the multisig wallet
-| signerCount | public uint | Number of signers of the multisig wallet
 | required | public uint | Required number of signer's signature needed to execute a submitted transaction.
 | transactionCount | public uint | Number of transactions on the MultisigWallet
 
@@ -36,7 +36,7 @@ This enum is used to identify the type of token used in the submitted transactio
 | Struct variable | Type | Description |
 | ------ | ------ | ------ |
 | executed  | bool | Check the state of a transaction, if it is executed or not
-| destination | address | Ethereum Wallet where the "value" will be sent
+| destination | address | Wallet where the "value" will be sent
 | token | address | Address of the token contract, if the transaction is with the native token of the blockchain, you can put any address
 | data | bytes | Method id of the submitted transaction
 | ts | TokenStandard (Enum) | Type of token used in the submitted transaction (0 = ERC20, 1 = ERC721, 2 = ERC1155, 3 = USER)
@@ -75,7 +75,7 @@ This functions allows the deposit of ERC20, ERC721 and 1155 tokens on the MultiS
 
 #### Function submitTransaction()
 
-This function allows signers to submit a transaction to be confirmed by signers. A signer submitting the spendable transaction is confirm it automatically.
+This function allows signers to submit a transaction to be confirmed by signers. The signer submitting the spendable transaction confirm it automatically.
 
 #### Function confirmTransaction()
 
@@ -99,7 +99,7 @@ This function returns the addresses of signers who confirmed a submitted spendab
 
 #### Function getTransactionIds()
 
-This function checks the data of spendable transaction (is the transaction id is include between "from" and "to", is the transaction pending, is the transaction executed). This function returns the transactions that corresponds to the parameters.
+This function checks the data of spendable transaction (is the transaction id include between "from" and "to", is the transaction pending, is the transaction executed). This function returns the transactions that corresponds to the parameters.
 
 #### Functions on onERC721Received(), onERC1155Received(),and onERC1155BatchReceived()
 
@@ -115,7 +115,7 @@ This function is called in confirmTransaction() when the number of signatures ne
 
 #### Function isTransactionTimedOut()
 
-This function is called in confirmTransaction(). When the remaining period is reached, confirmations can no longer take place so the transaction is permanently frozen
+This function is called in confirmTransaction(). When the cutoff timestamp to confirm the transaction has passed, confirmations can no longer take place so the transaction is permanently frozen
 
 #### Function isSignerChangeConfirmed()
 
