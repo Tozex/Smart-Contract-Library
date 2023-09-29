@@ -55,8 +55,17 @@ module.exports = {
       gasPrice: 2000000000,
       gas: 4712388,
     },
+    sepolia: {
+      provider() {
+        return new HDWalletProvider(process.env.MNEMONIC, process.env.SEPOLIA_INFURA_SERVER, 0);
+      },
+      networkCheckTimeout:10000000,
+      network_id: 11155111,
+      // gasPrice: 2000000000,
+      gas: 4712388,
+    },
     bscmainnet: {
-      provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://bsc-dataseed.binance.org/`),
+      provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://bsc-dataseed.binance.org/`, 0),
       network_id: 56,
       confirmations: 2,
       timeoutBlocks: 10000,
@@ -67,13 +76,11 @@ module.exports = {
       // networkCheckTimeout:999999
     },
     bsctestnet: {
-      provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://data-seed-prebsc-1-s1.binance.org:8545/`),
+      provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://data-seed-prebsc-1-s3.binance.org:8545/`, 0),
       network_id: 97,
-      confirmations: 2,
-      gasPrice: 20000000000,
-      timeoutBlocks: 10000,
-      skipDryRun: true,
-      networkCheckTimeout:999999
+      networkCheckTimeout:20000,
+      gasPrice: 18000000000,
+      gas: 50000000,
     }
     // Useful for private networks
     // private: {

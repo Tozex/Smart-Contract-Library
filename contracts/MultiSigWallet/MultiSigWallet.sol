@@ -4,17 +4,23 @@ pragma solidity ^0.8.0;
 /// @title Multisignature wallet by TOZEX inspired by Gnosis Multisignature project for which we added new functionalities like transaction countdown validation and ERC20/ERC721/ERC1155 tokens management.
 /// @author Tozex company
 
-import "../OpenZeppelin/Math.sol";
-import "../OpenZeppelin/SafeERC20.sol";
-import "../OpenZeppelin/Ownable.sol";
-import "../OpenZeppelin/IERC721Receiver.sol";
-import "../OpenZeppelin/ERC1155Receiver.sol";
-import "../Interface/IERC20.sol";
-import "../Interface/IERC721.sol";
-import "../Interface/IERC1155.sol";
-
-contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
-  using SafeERC20 for IERC20;
+import "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+ 
+contract MultiSigWallet is 
+  Initializable,
+  OwnableUpgradeable, 
+  IERC721ReceiverUpgradeable, 
+  ERC1155ReceiverUpgradeable
+{
+  using SafeERC20Upgradeable for IERC20Upgradeable;
 
   uint constant public MAX_OWNER_COUNT = 10;
 
@@ -108,7 +114,7 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
    * @param _signers List of initial signers.
    * @param _required Number of required confirmations.
    */
-  constructor (address[] memory _signers, uint _required) validRequirement(_signers.length, _required) {
+  function initialize(address[] memory _signers, uint _required) external initializer validRequirement(_signers.length, _required) {
     for (uint i = 0; i < _signers.length; ) {
       require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender, "Invalid signer");
       isSigner[_signers[i]] = true;
@@ -179,19 +185,19 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   function depositERC20(address token, uint amount) external {
     require(token != address(0) , "invalid token");
     require(amount > 0 , "invalid amount");
-    IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+    IERC20Upgradeable(token).safeTransferFrom(msg.sender, address(this), amount);
     emit ERC20Deposited(msg.sender, token, amount); 
   }
 
   function depositERC721(address token, uint tokenId) external {
     // Transfer the ERC721 token to the multisig contract
-    IERC721(token).safeTransferFrom(msg.sender, address(this), tokenId);
+    IERC721Upgradeable(token).safeTransferFrom(msg.sender, address(this), tokenId);
     emit ERC721Deposited(msg.sender, token, tokenId);
   }
 
   function depositERC1155(address token, uint tokenId, uint amount) external {
     // Transfer the ERC1155 tokens to the multisig contract
-    IERC1155(token).safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
+    IERC1155Upgradeable(token).safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
     emit ERC1155Deposited(msg.sender, token, tokenId, amount);
   }
 
@@ -321,8 +327,8 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
   {
     require(from < to, "Invalid range: from must be less than to");
 
-    from = Math.min(from, transactionCount);
-    to = Math.max(to, transactionCount);
+    from = MathUpgradeable.min(from, transactionCount);
+    to = MathUpgradeable.max(to, transactionCount);
     
     uint[] memory transactionIdsTemp = new uint[](to - from);
     uint count = 0;
@@ -431,13 +437,13 @@ contract MultiSigWallet is Ownable, IERC721Receiver, ERC1155Receiver {
           txn.executed = false;
         }
       } else if(txn.ts == TokenStandard.ERC20) {
-        IERC20(txn.token).safeTransfer(txn.destination, txn.value);
+        IERC20Upgradeable(txn.token).safeTransfer(txn.destination, txn.value);
         emit Execution(transactionId);
       } else if(txn.ts == TokenStandard.ERC721) {
-        IERC721(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId);
+        IERC721Upgradeable(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId);
         emit Execution(transactionId);
       } else if(txn.ts == TokenStandard.ERC1155) {
-        IERC1155(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId, txn.value, "");
+        IERC1155Upgradeable(txn.token).safeTransferFrom(address(this), txn.destination, txn.tokenId, txn.value, "");
         emit Execution(transactionId);
       }
     }
