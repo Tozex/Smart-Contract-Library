@@ -4,3 +4,7 @@ truffle.js
 .idea/
 .env
 config/vars.json
+flatten
+.openzeppelin
+artifacts
+cache
