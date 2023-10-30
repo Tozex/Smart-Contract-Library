@@ -14,7 +14,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.so
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  
-contract MultiSigWallet is 
+contract MultiSigWalletTest is 
   Initializable,
   OwnableUpgradeable, 
   IERC721ReceiverUpgradeable, 
@@ -134,7 +134,7 @@ contract MultiSigWallet is
     * Can only be called by the current owner.
     */
   function transferOwnership(address newOwner) public override virtual onlyOwner {
-      require(!isSigner[newOwner], "Ownable: new owner cannot be signer.");
+      // require(!isSigner[newOwner], "Ownable: new owner cannot be signer.");
       super.transferOwnership(newOwner);
   }
 

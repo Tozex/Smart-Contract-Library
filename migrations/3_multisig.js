@@ -4,7 +4,7 @@ const hre = require("hardhat");
 async function main() {
   const MultiSigWallet = await hre.ethers.getContractFactory("MultiSigWallet");
   console.log(hre.upgrades)
-  const multisig = await hre.upgrades.deployProxy(MultiSigWallet, [["0xB2e0adeB86467107659B7E56480Afe72C8F3AD55", "0xEBE8Fc0E1B84714Cc85C72C3E6EBb037247AEAA1","0x4fd2f6C62c532b35C75dE2493D17eb4FcDA38479"], 2]);
+  const multisig = await hre.upgrades.deployProxy(MultiSigWallet, [["0xF79244be8F46E4687A7150a76bFD821e775f26bB", "0xe249BEc3a1FDCea562Abf1479C641106DB8421C3","0x443112E22cc72020C29e8240174115bD0bdB0C4E", "0x93BF5828f7AFff6139E704ba58fF87128E26C1e6"], 2]);
 
   await multisig.deployed();
 
