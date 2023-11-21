@@ -36,13 +36,16 @@ contract MultiSigWallet is
   event ERC1155Deposited(address indexed sender, address indexed token, uint tokenId, uint value);
   event SignerChangeRequested(address indexed currentSigner, address indexed newSigner);
   event SignerUpdated(address indexed oldSigner, address indexed newSigner);
+  event OwnerChangeRequested(address indexed newOwner);
 
   mapping(uint => Transaction) public transactions;
   mapping(uint => mapping(address => bool)) public confirmations;
   mapping(address => address) public signerChangeRequests;
   mapping(address => mapping(address => bool)) public signerChangeConfirmations;
+  mapping(address => bool) public ownerChangeConfirmations;
   mapping(address => bool) public isSigner;
   address[] public signers;
+  address public pendingNewOwner;
   uint public required;
   uint public transactionCount;
 
@@ -129,14 +132,6 @@ contract MultiSigWallet is
     required = _required;
   }
 
-  /**
-    * @dev Transfers ownership of the contract to a new account (`newOwner`).
-    * Can only be called by the current owner.
-    */
-  function transferOwnership(address newOwner) public override virtual onlyOwner {
-      require(!isSigner[newOwner], "Ownable: new owner cannot be signer.");
-      super.transferOwnership(newOwner);
-  }
 
   /** 
    * @notice Allows the owner to request a change of signer.
@@ -181,6 +176,34 @@ contract MultiSigWallet is
       isSigner[_newSigner] = true;
       signers.push(_newSigner);
       emit SignerUpdated(_oldSigner, _newSigner);
+    }
+  }
+
+  /** 
+   * @notice Allows the owner to request a change of owner.
+   * @param _newOwner The address of the new Owner to be added.
+   */
+  function requestOwnerChange(address _newOwner) external onlyOwner {
+    require(!isSigner[_newOwner], "New owner cannot be a signer.");
+    
+    // Clear the signerChangeConfirmations for _newSigner if a change is "in-progress"
+    if (pendingNewOwner != address(0)) {
+        clearOwnerChangeConfirmations();
+    }
+
+    pendingNewOwner = _newOwner;
+    emit OwnerChangeRequested(_newOwner);
+  }
+
+  function confirmOwnerChange(address newOwner) public signerExists(msg.sender) {
+    require(pendingNewOwner == newOwner, "Invalid new owner address");
+    require(!ownerChangeConfirmations[msg.sender], "You already confirmed.");
+    ownerChangeConfirmations[msg.sender] = true;
+    if (isOwnerChangeConfirmed()) {
+        // Clear the signerChangeConfirmations for _newSigner
+        clearOwnerChangeConfirmations();
+        pendingNewOwner = address(0);
+        super.transferOwnership(newOwner);
     }
   }
 
@@ -475,6 +498,21 @@ contract MultiSigWallet is
     return count == required;
   }
 
+  function isOwnerChangeConfirmed() internal view returns (bool) {
+    uint256 signerCount = signers.length;
+    uint256 count;
+
+    for (uint i = 0; i < signerCount && count < required; ) {
+        if (ownerChangeConfirmations[signers[i]]) count ++;
+        
+        unchecked {
+            i++;
+        }
+    }
+
+    return count == required;
+  }
+
   function removeSigner(address oldSigner) internal {
     if (!isSigner[oldSigner]) return;
 
@@ -502,6 +540,18 @@ contract MultiSigWallet is
 
     for (uint i = 0; i < signerCount; ) {
         confirmation[signers[i]] = false;
+
+        unchecked {
+          i++;
+        }
+    }
+  }
+
+  function clearOwnerChangeConfirmations() internal {
+    uint256 signerCount = signers.length;
+
+    for (uint i = 0; i < signerCount; ) {
+        ownerChangeConfirmations[signers[i]] = false;
 
         unchecked {
           i++;
