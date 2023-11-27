@@ -237,6 +237,17 @@ contract MultiSigWalletAPI is
     transactionId = addTransaction(destination, token, ts, tokenId, value, data, confirmTimestamp, txTimestamp);
     confirmTransaction(transactionId);
   }
+
+  /**
+   * @dev Allows the owner to submit a transaction.
+   * @param destination Transaction target address.
+   * @param value Transaction ether value.
+   * @param data Transaction data payload.
+   */
+  function submitTransactionByOwner(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp) public onlyOwner returns (uint transactionId) {
+    uint txTimestamp = _getNow();
+    transactionId = addTransaction(destination, token, ts, tokenId, value, data, confirmTimestamp, txTimestamp);
+  }
  
   /**
    * @dev Allows an signer to confirm a transaction.
