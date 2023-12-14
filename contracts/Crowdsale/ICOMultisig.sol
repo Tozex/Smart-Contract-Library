@@ -119,6 +119,7 @@ contract ICOMultisig is  Ownable, Pausable {
     tokenDecimals = _tokenDecimals;
     icoSoftCap = _icoSoftCap;
     icoMaxCap = _icoMaxCap;
+
     // start ico
     ico = true;
   }
@@ -139,7 +140,7 @@ contract ICOMultisig is  Ownable, Pausable {
     uint256 tokenAmount = _getTokenAmount(_tt, _amount);
 
     require(tokenAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
-
+    require(totalDepositAmount + tokenAmount <= icoMaxCap, "ICO.buyTokens: Failed the hardcap is reached");
     require(token.balanceOf(address(this)) >= totalDepositAmount + tokenAmount, "ICO.buyTokens: not enough token to send");
 
     IERC20 payToken = _tt == TokenType.TOZ ? tozToken : usdcToken;
@@ -161,9 +162,14 @@ contract ICOMultisig is  Ownable, Pausable {
 
     emit TokenPurchase(msg.sender, _amount, tokenAmount);
 
-    //If icoMaxCap is reached then the ICO close
+    //If icoSoftCap is reached then then distribute all tokens
     if (totalDepositAmount >= icoSoftCap) {
       _distributeToken();
+    }
+
+    //If icoMaxCap is reached then the ICO close
+    if (totalDepositAmount >= icoMaxCap) {
+      ico = false;
     }
   }
 
