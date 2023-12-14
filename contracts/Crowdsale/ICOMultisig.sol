@@ -89,6 +89,9 @@ contract ICOMultisig is  Ownable, Pausable {
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
   event WithdrawStablecoin(address indexed sender, address indexed recipient, uint256 amount);
+  event WithdrawToztoken(address indexed sender, address indexed recipient, uint256 amount);
+  event Withdrawtoken(address indexed sender, address indexed recipient, uint256 amount);
+
 
   /**
    * @param _tozToken Address of Stablecoin token
@@ -243,6 +246,26 @@ contract ICOMultisig is  Ownable, Pausable {
     }
   }
 
+  //Withdraw remaining Stablecoin
+  function withdrawStablecoin() external onlyOwner {
+    uint256 StablecoinBalance = usdcToken.balanceOf(address(this));
+    usdcToken.safeTransfer(wallet, StablecoinBalance);
+    emit WithdrawStablecoin(address(this), wallet, StablecoinBalance);
+  }
+
+  //Withdraw remaining Toz Token
+  function withdrawToztoken() external onlyOwner {
+    uint256 TozTokenBalance = tozToken.balanceOf(address(this));
+    tozToken.safeTransfer(wallet, TozTokenBalance);
+    emit WithdrawToztoken(address(this), wallet, TozTokenBalance);
+  }
+
+  //Withdraw remaining token
+  function withdrawtoken() external onlyOwner {
+    uint256 TokenBalance = token.balanceOf(address(this));
+    token.safeTransfer(wallet, TokenBalance);
+    emit Withdrawtoken(address(this), wallet, TokenBalance);
+  }
 
   // Calcul the amount of token the benifiaciary will get by buying during Sale
   function _getTokenAmount(TokenType _tt, uint256 _amount) internal view returns (uint256) {
