@@ -12,9 +12,9 @@ import "../MultiSigWallet/IMultiSigWallet.sol";
 
 
 /**
- * @title ICOStabelcoin
+ * @title ICOStablecoin
  * @dev ICO is a base contract for managing a public token sale,
- * allowing investors to purchase tokens with Stabelcoin. This contract implements
+ * allowing investors to purchase tokens with Stablecoin. This contract implements
  * such functionality in its most fundamental form and can be extended to provide additional
  * functionality and/or custom behavior.
  * The external interface represents the basic interface for purchasing tokens, and conform
@@ -44,10 +44,10 @@ contract ICOMultisig is  Ownable, Pausable {
   // The token being sold
   IERC20 public immutable token;
 
-  // Stabelcoin token.
+  // Stablecoin token.
   IERC20 public immutable tozToken;
 
-  // Stabelcoin token.
+  // Stablecoin token.
   IERC20 public immutable usdcToken;
 
   IMultiSigWallet public multisig;
@@ -61,23 +61,20 @@ contract ICOMultisig is  Ownable, Pausable {
   uint256 tokenDecimals;
 
   // Address where funds are collected
-  address public wallet;
+  address public wallet; 
 
-  // How many token units a buyer gets per Token/Stabelcoin
-  uint256 public StabelcoinRatePerToken;    
-
-  // Amount of Stabelcoin raised during the ICO period
+  // Amount of Stablecoin raised during the ICO period
   uint256 public totalDepositAmount;
 
   uint256 private pendingTokenToSend;
 
-  // Minimum purchase size of incoming Stabelcoin token = 10$.
+  // Minimum purchase size of incoming Stablecoin token = 10$.
   uint256 public constant minPurchaseIco = 10 * 1e18;
 
-  // Hardcap goal in Stabelcoin during ICO in Stabelcoin raised fixed at $ 13 000 000 for Stabelcoin valued at 400$
+  // Hardcap goal in Stablecoin during ICO in Stablecoin 
   uint256 public icoMaxCap;
 
-  // Softcap goal in Stabelcoin during ICO in Stabelcoin raised fixed at $ 13 000 000 for Stabelcoin valued at 400$
+  // Softcap goal in Stablecoin during ICO in Stablecoin 
   uint256 public icoSoftCap;
 
   // Unlock time stamp.
@@ -86,16 +83,16 @@ contract ICOMultisig is  Ownable, Pausable {
   // ICO start/end
   bool public ico = false;         // State of the ongoing sales ICO period
 
-  // User deposit Stabelcoin amount
+  // User deposit Stablecoin amount
   mapping(address => UserDetail) public userDetails;
   address[] public userAddresses;
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
-  event WithdrawStabelcoin(address indexed sender, address indexed recipient, uint256 amount);
+  event WithdrawStablecoin(address indexed sender, address indexed recipient, uint256 amount);
 
   /**
-   * @param _tozToken Address of Stabelcoin token
-   * @param _usdcToken Address of Stabelcoin token
+   * @param _tozToken Address of Stablecoin token
+   * @param _usdcToken Address of Stablecoin token
    * @param _token Address of reward token
    * @param _tozRatio The token ratio btw TOZ and DPS
    * @param _usdcRatio The token ratio btw USDC and DPS
@@ -133,7 +130,7 @@ contract ICOMultisig is  Ownable, Pausable {
 
   /**
    * @dev low level token purchase ***DO NOT OVERRIDE***
-   * @param _amount Stabelcoin token amount
+   * @param _amount Stablecoin token amount
    */
   function buyTokens(TokenType _tt, uint256 _amount) external whenNotPaused {
     require(ico, "ICO.buyTokens: ICO is already finished.");
