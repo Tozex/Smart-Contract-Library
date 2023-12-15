@@ -149,8 +149,6 @@ contract ICOMultisig is  Ownable, Pausable {
     IERC20 payToken = _tt == TokenType.TOZ ? tozToken : usdcToken;
     payToken.safeTransferFrom(msg.sender, address(multisig), _amount);
 
-    totalDepositAmount += tokenAmount;
-
     UserDetail storage userDetail = userDetails[msg.sender];
 
     if(userDetail.depositAmount == 0)
@@ -165,11 +163,15 @@ contract ICOMultisig is  Ownable, Pausable {
 
     emit TokenPurchase(msg.sender, _amount, tokenAmount);
 
-    //If icoSoftCap is reached then then distribute all tokens
     if (totalDepositAmount >= icoSoftCap) {
+      token.safeTransfer(msg.sender, tokenAmount);
+      userDetail.remainingAmount = 0;
+    }
+    //If icoSoftCap is reached then then distribute all tokens
+    else if (totalDepositAmount + tokenAmount >= icoSoftCap) {
       _distributeToken();
     }
-
+    totalDepositAmount += tokenAmount;
     //If icoMaxCap is reached then the ICO close
     if (totalDepositAmount >= icoMaxCap) {
       ico = false;
