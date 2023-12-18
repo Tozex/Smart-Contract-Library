@@ -57,12 +57,6 @@ contract ICOMultisig is  Ownable, Pausable {
   // USDC : DPS Ratio
   uint256 usdcRatio;
 
-  // Decimals vlaue of the token
-  uint256 tokenDecimals;
-
-  // Address where funds are collected
-  address public wallet; 
-
   // Amount of Stablecoin raised during the ICO period
   uint256 public totalDepositAmount;
 
@@ -99,7 +93,6 @@ contract ICOMultisig is  Ownable, Pausable {
    * @param _token Address of reward token
    * @param _tozRatio The token ratio btw TOZ and DPS
    * @param _usdcRatio The token ratio btw USDC and DPS
-   * @param _tokenDecimals The decimal of reward token
    * @param _icoSoftCap The softcap amount of DPS token.
    * @param _icoMaxCap The maxcap amount of DPS token.
    */
@@ -109,7 +102,6 @@ contract ICOMultisig is  Ownable, Pausable {
     IERC20 _token, 
     uint256 _tozRatio,
     uint256 _usdcRatio,
-    uint256 _tokenDecimals,
     uint256 _icoSoftCap,
     uint256 _icoMaxCap
   ) {
@@ -119,7 +111,6 @@ contract ICOMultisig is  Ownable, Pausable {
     token = _token;
     tozRatio = _tozRatio;
     usdcRatio = _usdcRatio;
-    tokenDecimals = _tokenDecimals;
     icoSoftCap = _icoSoftCap;
     icoMaxCap = _icoMaxCap;
 
@@ -144,7 +135,6 @@ contract ICOMultisig is  Ownable, Pausable {
 
     require(tokenAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
     require(totalDepositAmount + tokenAmount <= icoMaxCap, "ICO.buyTokens: Failed the hardcap is reached");
-    require(token.balanceOf(address(this)) >= totalDepositAmount + tokenAmount, "ICO.buyTokens: not enough token to send");
 
     IERC20 payToken = _tt == TokenType.TOZ ? tozToken : usdcToken;
     payToken.safeTransferFrom(msg.sender, address(multisig), _amount);
@@ -180,7 +170,13 @@ contract ICOMultisig is  Ownable, Pausable {
 
 
   /* ADMINISTRATIVE FUNCTIONS */
+  function pause() external onlyOwner() {
+    _pause();
+  }
 
+  function unpause() external onlyOwner() {
+    _unpause();
+  }
   // Update the toz ICO rate
   function updateTozRatio(uint256 _tozRatio) external onlyOwner {
     tozRatio = _tozRatio;
@@ -249,31 +245,31 @@ contract ICOMultisig is  Ownable, Pausable {
   }
 
   //Withdraw remaining Stablecoin
-  function withdrawStablecoin() external onlyOwner {
+  function withdrawStablecoin(address wallet) external onlyOwner {
     uint256 StablecoinBalance = usdcToken.balanceOf(address(this));
     usdcToken.safeTransfer(wallet, StablecoinBalance);
     emit WithdrawStablecoin(address(this), wallet, StablecoinBalance);
   }
 
   //Withdraw remaining Toz Token
-  function withdrawToztoken() external onlyOwner {
+  function withdrawToztoken(address wallet) external onlyOwner {
     uint256 TozTokenBalance = tozToken.balanceOf(address(this));
     tozToken.safeTransfer(wallet, TozTokenBalance);
     emit WithdrawToztoken(address(this), wallet, TozTokenBalance);
   }
 
   //Withdraw remaining token
-  function withdrawtoken() external onlyOwner {
+  function withdrawtoken(address wallet) external onlyOwner {
     uint256 TokenBalance = token.balanceOf(address(this));
     token.safeTransfer(wallet, TokenBalance);
     emit Withdrawtoken(address(this), wallet, TokenBalance);
   }
 
   // Calcul the amount of token the benifiaciary will get by buying during Sale
-  function _getTokenAmount(TokenType _tt, uint256 _amount) internal view returns (uint256) {
+  function _getTokenAmount(TokenType _tt, uint256 _amount) public view returns (uint256) {
     uint256 ratio = _tt == TokenType.TOZ ? tozRatio : usdcRatio;
     uint256 decimal = _tt == TokenType.TOZ ? 18 : 6;
-    uint256 _amountToSend = _amount * (ratio / 10000) * 10 ** (18 - decimal);
+    uint256 _amountToSend = _amount * 100 / ratio * 10 ** (18 - decimal);
     return _amountToSend;
   }
 
