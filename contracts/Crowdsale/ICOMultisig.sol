@@ -1,5 +1,6 @@
-pragma solidity ^0.8.1;
+pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -24,7 +25,7 @@ import "../MultiSigWallet/IMultiSigWallet.sol";
  * behavior.
  */
 
-contract ICOMultisig is  Ownable, Pausable {
+contract ICOMultisig is  Ownable, Pausable, ReentrancyGuard {
 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
@@ -60,8 +61,6 @@ contract ICOMultisig is  Ownable, Pausable {
   // Amount of Stablecoin raised during the ICO period
   uint256 public totalDepositAmount;
 
-  uint256 private pendingTokenToSend;
-
   // Minimum purchase size of incoming Stablecoin token = 10$.
   uint256 public constant minPurchaseIco = 10 * 1e18;
 
@@ -83,9 +82,15 @@ contract ICOMultisig is  Ownable, Pausable {
 
   event TokenPurchase(address indexed buyer, uint256 value, uint256 amount);
   event WithdrawStablecoin(address indexed sender, address indexed recipient, uint256 amount);
-  event WithdrawToztoken(address indexed sender, address indexed recipient, uint256 amount);
-  event Withdrawtoken(address indexed sender, address indexed recipient, uint256 amount);
-
+  event WithdrawTozToken(address indexed sender, address indexed recipient, uint256 amount);
+  event WithdrawToken(address indexed sender, address indexed recipient, uint256 amount);
+  event UpdateTozRatio(uint256 tozRatio);
+  event UpdateUsdcRatio(uint256 usdcRatio);
+  event UpdateIcoSoftCap(uint256 icoSoftCap);
+  event UpdateIcoMaxCap(uint256 icoMaxCap);
+  event SetUnlockTime(uint256 unlockTime);
+  event SetIco(bool status);
+  event SetMultisig(address indexed multisig);
 
   /**
    * @param _tozToken Address of Stablecoin token
@@ -127,11 +132,11 @@ contract ICOMultisig is  Ownable, Pausable {
    * @dev low level token purchase ***DO NOT OVERRIDE***
    * @param _amount Stablecoin token amount
    */
-  function buyTokens(TokenType _tt, uint256 _amount) external whenNotPaused {
+  function buyTokens(TokenType _tt, uint256 _amount) external whenNotPaused nonReentrant {
     require(ico, "ICO.buyTokens: ICO is already finished.");
     require(unlockTime == 0 || _getNow() < unlockTime, "ICO.buyTokens: Buy period already finished.");
 
-    uint256 tokenAmount = _getTokenAmount(_tt, _amount);
+    uint256 tokenAmount = getTokenAmount(_tt, _amount);
 
     require(tokenAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
     require(totalDepositAmount + tokenAmount <= icoMaxCap, "ICO.buyTokens: Failed the hardcap is reached");
@@ -180,30 +185,41 @@ contract ICOMultisig is  Ownable, Pausable {
   // Update the toz ICO rate
   function updateTozRatio(uint256 _tozRatio) external onlyOwner {
     tozRatio = _tozRatio;
+    emit UpdateTozRatio(_tozRatio);
   }
 
   // Update the usdc ICO rate
   function updateUsdcRatio(uint256 _usdcRatio) external onlyOwner {
     usdcRatio = _usdcRatio;
+    emit UpdateUsdcRatio(_usdcRatio);
   }
 
   // Update the token ICO SOFT CAP
   function updateIcoSoftCap(uint256 _icoSoftCap) external onlyOwner {
     icoSoftCap = _icoSoftCap;
+    emit UpdateIcoSoftCap(_icoSoftCap);
   }
 
   // Update the token ICO MAX CAP
   function updateIcoMaxCap(uint256 _icoMaxCap) external onlyOwner {
     icoMaxCap = _icoMaxCap;
+    emit UpdateIcoMaxCap(_icoMaxCap);
   }
 
  // start/close Ico
   function setIco(bool status) external onlyOwner {
     ico = status;
+    emit SetIco(status);
   }
 
   function setMultisig(IMultiSigWallet _multisig) external onlyOwner {
     multisig = _multisig;
+    emit SetMultisig(address(_multisig));
+  }
+
+  function setUnlockTime(uint256 _unlockTime) external onlyOwner {
+    unlockTime = _unlockTime;
+    emit SetUnlockTime(_unlockTime);
   }
 
   function requestRefund() external onlyOwner {
@@ -213,7 +229,7 @@ contract ICOMultisig is  Ownable, Pausable {
     multisig.submitTransaction(payable(address(this)), address(usdcToken), 0, 0, usdcBalance, "", 0);
   }
   
-  function refundToken() external onlyOwner {
+  function refundToken() external nonReentrant onlyOwner {
     for(uint256 i = 0; i < userAddresses.length;) {
       UserDetail storage userDetail = userDetails[userAddresses[i]];
       IERC20 payToken = userDetail.tt == TokenType.TOZ ? tozToken : usdcToken;
@@ -252,24 +268,24 @@ contract ICOMultisig is  Ownable, Pausable {
   }
 
   //Withdraw remaining Toz Token
-  function withdrawToztoken(address wallet) external onlyOwner {
+  function withdrawTozToken(address wallet) external onlyOwner {
     uint256 TozTokenBalance = tozToken.balanceOf(address(this));
     tozToken.safeTransfer(wallet, TozTokenBalance);
-    emit WithdrawToztoken(address(this), wallet, TozTokenBalance);
+    emit WithdrawTozToken(address(this), wallet, TozTokenBalance);
   }
 
   //Withdraw remaining token
-  function withdrawtoken(address wallet) external onlyOwner {
+  function withdrawToken(address wallet) external onlyOwner {
     uint256 TokenBalance = token.balanceOf(address(this));
     token.safeTransfer(wallet, TokenBalance);
-    emit Withdrawtoken(address(this), wallet, TokenBalance);
+    emit WithdrawToken(address(this), wallet, TokenBalance);
   }
 
   // Calcul the amount of token the benifiaciary will get by buying during Sale
-  function _getTokenAmount(TokenType _tt, uint256 _amount) public view returns (uint256) {
+  function getTokenAmount(TokenType _tt, uint256 _amount) public view returns (uint256) {
     uint256 ratio = _tt == TokenType.TOZ ? tozRatio : usdcRatio;
     uint256 decimal = _tt == TokenType.TOZ ? 18 : 6;
-    uint256 _amountToSend = _amount * 100 / ratio * 10 ** (18 - decimal);
+    uint256 _amountToSend = _amount * 100 * 10 ** (18 - decimal) / ratio;
     return _amountToSend;
   }
 
