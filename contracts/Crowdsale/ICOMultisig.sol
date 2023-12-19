@@ -75,7 +75,7 @@ contract ICOMultisig is  Initializable, OwnableUpgradeable, PausableUpgradeable,
   uint256 public unlockTime;
 
   // ICO start/end
-  bool public ico = false;         // State of the ongoing sales ICO period
+  bool public ico;         // State of the ongoing sales ICO period
 
   // User deposit Stablecoin amount
   mapping(address => UserDetail) public userDetails;
