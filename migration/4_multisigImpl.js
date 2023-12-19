@@ -3,7 +3,7 @@ const hre = require("hardhat");
 
 
 async function main() {
-  const impl = await hre.ethers.deployContract('MultiSigWalletTest');
+  const impl = await hre.ethers.deployContract('MultiSigWalletAPI');
   await impl.deployed();
   console.log("multisig implementation deployed to:", impl.address);
 }
