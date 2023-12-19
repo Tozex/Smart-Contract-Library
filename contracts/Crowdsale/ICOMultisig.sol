@@ -1,9 +1,10 @@
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -25,7 +26,7 @@ import "../MultiSigWallet/IMultiSigWallet.sol";
  * behavior.
  */
 
-contract ICOMultisig is  Ownable, Pausable, ReentrancyGuard {
+contract ICOMultisig is  Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
@@ -43,13 +44,13 @@ contract ICOMultisig is  Ownable, Pausable, ReentrancyGuard {
   }
   
   // The token being sold
-  IERC20 public immutable token;
+  IERC20 public token;
 
   // Stablecoin token.
-  IERC20 public immutable tozToken;
+  IERC20 public tozToken;
 
   // Stablecoin token.
-  IERC20 public immutable usdcToken;
+  IERC20 public usdcToken;
 
   IMultiSigWallet public multisig;
   // TOZ : DPS Ratio
@@ -101,7 +102,7 @@ contract ICOMultisig is  Ownable, Pausable, ReentrancyGuard {
    * @param _icoSoftCap The softcap amount of DPS token.
    * @param _icoMaxCap The maxcap amount of DPS token.
    */
-  constructor(
+  function initialize(
     IERC20 _tozToken,
     IERC20 _usdcToken,
     IERC20 _token, 
@@ -109,7 +110,11 @@ contract ICOMultisig is  Ownable, Pausable, ReentrancyGuard {
     uint256 _usdcRatio,
     uint256 _icoSoftCap,
     uint256 _icoMaxCap
-  ) {
+  ) external initializer {
+    __Context_init();
+    __Ownable_init();
+    __Pausable_init();
+
     require(address(_usdcToken) != address(0) && address(_tozToken) != address(0) && address(_token) != address(0));
     tozToken = _tozToken;
     usdcToken = _usdcToken;
