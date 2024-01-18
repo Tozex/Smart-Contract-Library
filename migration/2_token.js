@@ -3,9 +3,9 @@ const hre = require("hardhat");
 
 
 async function main() {
-  const impl = await hre.ethers.deployContract('MultiSigWallet');
+  const impl = await hre.ethers.deployContract('MockToken', ["DPS", "DPS"]);
   await impl.deployed();
-  console.log("multisig implementation deployed to:", impl.address);
+  console.log("token deployed to:", impl.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

@@ -294,6 +294,10 @@ contract ICOMultisig is  Initializable, OwnableUpgradeable, PausableUpgradeable,
     return _amountToSend;
   }
 
+  function getUserCount() public view returns (uint256) {
+    return userAddresses.length;
+  }
+
   function _getNow() public virtual view returns (uint256) {
       return block.timestamp;
   }

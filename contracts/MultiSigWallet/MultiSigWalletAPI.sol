@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 /// @author Tozex company
 
 import "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
@@ -15,8 +14,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverU
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  
 contract MultiSigWalletAPI is 
-  Initializable,
-  OwnableUpgradeable, 
+  Initializable, 
   IERC721ReceiverUpgradeable, 
   ERC1155ReceiverUpgradeable
 {
@@ -37,6 +35,7 @@ contract MultiSigWalletAPI is
   event SignerChangeRequested(address indexed currentSigner, address indexed newSigner);
   event SignerUpdated(address indexed oldSigner, address indexed newSigner);
   event OwnerChangeRequested(address indexed newOwner);
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
   mapping(uint => Transaction) public transactions;
   mapping(uint => mapping(address => bool)) public confirmations;
@@ -46,6 +45,7 @@ contract MultiSigWalletAPI is
   mapping(address => bool) public isSigner;
   address[] public signers;
   address public pendingNewOwner;
+  address public owner;
   uint public required;
   uint public transactionCount;
 
@@ -66,6 +66,11 @@ contract MultiSigWalletAPI is
     uint value;
     uint confirmTimestamp;
     uint txTimestamp;
+  }
+
+  modifier onlyOwner() {
+    require(owner == msg.sender, "Ownable: caller is not the owner");
+    _;
   }
 
   modifier signerExists(address signer) {
@@ -118,8 +123,6 @@ contract MultiSigWalletAPI is
    * @param _required Number of required confirmations.
    */
   function initialize(address[] memory _signers, uint _required) external initializer validRequirement(_signers.length, _required) {
-    __Ownable_init();
-    
     for (uint i = 0; i < _signers.length; ) {
       require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender, "Invalid signer");
       isSigner[_signers[i]] = true;
@@ -130,6 +133,7 @@ contract MultiSigWalletAPI is
     }
     signers = _signers;
     required = _required;
+    _transferOwnership(msg.sender);
   }
 
 
@@ -141,7 +145,7 @@ contract MultiSigWalletAPI is
   function requestSignerChange(address _oldSigner, address _newSigner) external onlyOwner {
     require(isSigner[_oldSigner], "Old signer does not exist.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
-    require(_newSigner != owner(), "Onwer cannot be a signer.");
+    require(_newSigner != owner, "Onwer cannot be a signer.");
     
     // Clear the signerChangeConfirmations for _newSigner if a change is "in-progress"
     if (signerChangeRequests[_oldSigner] != address(0)) {
@@ -161,7 +165,7 @@ contract MultiSigWalletAPI is
     require(!signerChangeConfirmations[_newSigner][msg.sender], "You already confirmed.");
     require(signerChangeRequests[_oldSigner] == _newSigner, "New signer address invalid.");
     require(_newSigner != address(0), "No pending signer update request.");
-    require(_newSigner != owner(), "Onwer cannot be a signer.");
+    require(_newSigner != owner, "Onwer cannot be a signer.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
 
     // Confirm the update by the current signer
@@ -203,7 +207,7 @@ contract MultiSigWalletAPI is
         // Clear the signerChangeConfirmations for _newSigner
         clearOwnerChangeConfirmations();
         pendingNewOwner = address(0);
-        super.transferOwnership(newOwner);
+        _transferOwnership(newOwner);
     }
   }
 
@@ -568,6 +572,12 @@ contract MultiSigWalletAPI is
           i++;
         }
     }
+  }
+
+  function _transferOwnership(address newOwner) internal virtual {
+    address oldOwner = owner;
+    owner = newOwner;
+    emit OwnershipTransferred(oldOwner, newOwner);
   }
 
   function _getNow() internal view returns (uint256) {

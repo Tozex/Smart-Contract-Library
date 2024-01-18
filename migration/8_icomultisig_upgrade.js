@@ -3,9 +3,9 @@ const hre = require("hardhat");
 
 
 async function main() {
-  const impl = await hre.ethers.deployContract('MultiSigWallet');
-  await impl.deployed();
-  console.log("multisig implementation deployed to:", impl.address);
+  const Ico = await hre.ethers.getContractFactory("ICOMultisig");
+  const ico = await upgrades.upgradeProxy('0xB5222767a8eA9465F7B7174B3C5bD6AccF2495d5', Ico);
+  console.log("ico multisig implementation deployed to:", ico.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

@@ -5,7 +5,7 @@ const hre = require("hardhat");
 async function main() {
   const MultiSigWallet = await hre.ethers.getContractFactory("MultiSigWallet");
 
-  const beconProxy = await hre.upgrades.deployBeaconProxy("0xa7F10549D73Da73E17DbCe3aa4587b6Bb968C900", MultiSigWallet, [["0xF79244be8F46E4687A7150a76bFD821e775f26bB", "0xe249BEc3a1FDCea562Abf1479C641106DB8421C3","0x443112E22cc72020C29e8240174115bD0bdB0C4E", "0x93BF5828f7AFff6139E704ba58fF87128E26C1e6"], 2]);
+  const beconProxy = await hre.upgrades.deployBeaconProxy("0x17DBEfC6F36E47BA8d478122B953e8A50bFB4908", MultiSigWallet, [["0x91E9dD0FA1ef0538aB3b291b8F631188d90021fe", "0x218C65Ba7A541EfCBBfE033F606E3896e6E83146","0x61fe7436Eb3C00dFCA11dd266052AABA3E02875b", "0x2B2f57bEc1467E4bf879E231Bb60F88c168caA35"], 3]);
 
   await beconProxy.deployed();
 
