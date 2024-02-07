@@ -509,6 +509,22 @@ contract MultiSigWalletAPI is
     return count == required;
   }
 
+  function getSigners() external view returns (address[] memory) {
+    return signers;
+  }
+
+  function getAllTransactions() external view returns (Transaction[] memory) {
+    Transaction[] memory _transactions = new Transaction[](transactionCount);
+    for (uint i = 0; i < transactionCount; ) {
+      _transactions[i] = transactions[i];
+
+      unchecked {
+        i++;
+      }
+    }
+    return _transactions;
+  }
+
   function isOwnerChangeConfirmed() internal view returns (bool) {
     uint256 signerCount = signers.length;
     uint256 count;
