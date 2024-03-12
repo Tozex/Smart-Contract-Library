@@ -27,7 +27,7 @@ contract MultiSigWalletAPI is
 
   event Confirmation(address indexed sender, uint indexed transactionId);
   event Revocation(address indexed sender, uint indexed transactionId);
-  event Submission(uint indexed transactionId);
+  event Submission(uint indexed transactionId, address indexed destination, address token, TokenStandard ts, uint tokenId, uint value, bytes data, uint confirmTimestamp);
   event Execution(uint indexed transactionId);
   event ExecutionFailure(uint indexed transactionId);
   event Deposit(address indexed sender, address indexed token, uint value);
@@ -450,7 +450,7 @@ contract MultiSigWalletAPI is
       txTimestamp : txTimestamp
       });
     transactionCount += 1;
-    emit Submission(transactionId);
+    emit Submission(transactionId, destination, token, ts, tokenId, value, data, confirmTimestamp);
   }
 
 
