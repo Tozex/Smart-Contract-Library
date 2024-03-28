@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0 license 
 pragma solidity ^0.8.0;
 
-/// @title Multisignature wallet by TOZEX inspired by Gnosis Multisignature project for which we added new functionalities like transaction countdown validation and ERC20/ERC721/ERC1155 tokens management.
+/// @title Multisignature wallet by TOZEX ERC20/ERC721/ERC1155 tokens management compatbile with the Tozex API : https://api.tozex.io/
 /// @author Tozex company
 
 import "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
