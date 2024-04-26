@@ -8,3 +8,5 @@ flatten
 .openzeppelin
 artifacts
 cache
+**/.DS_Store
+
