@@ -6,20 +6,21 @@
     "test": "test"
   },
   "dependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.6",
+    "@nomiclabs/hardhat-etherscan": "^3.0.3",
+    "@nomiclabs/hardhat-truffle5": "^2.0.7",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@openzeppelin/contracts": "^4.9.6",
     "@openzeppelin/contracts-upgradeable": "^4.9.6",
-    "@openzeppelin/test-helpers": "^0.5.10",
     "@openzeppelin/hardhat-upgrades": "^1.17.0",
+    "@openzeppelin/test-helpers": "^0.5.10",
     "chai": "^4.3.3",
     "dotenv": "^8.2.0",
+    "ethers": "^5.6.6",
     "mocha": "^10.2.0",
     "truffle-hdwallet-provider": "^1.0.17",
     "truffle-plugin-verify": "^0.5.6",
-    "web3": "^1.7.4",
-    "ethers": "^5.6.6",
-    "@nomiclabs/hardhat-ethers": "^2.0.6",
-    "@nomiclabs/hardhat-etherscan": "^3.0.3",
-    "@nomiclabs/hardhat-waffle": "^2.0.3"
+    "web3": "^1.7.3"
   },
   "scripts": {
     "start": "node script/index.js",
@@ -27,7 +28,9 @@
     "normal": "node script/alloc-normal.js",
     "vesting": "node script/alloc-vesting.js",
     "team": "node script/alloc-team.js",
-    "transferBackOwnerships": "node script/transferBackOwnerships.js"
+    "transferBackOwnerships": "node script/transferBackOwnerships.js",
+    "verify-factory":"npx hardhat verify --constructor-args migration/arguments/factory.js",
+    "verify-implementation":"npx hardhat verify --constructor-args migration/arguments/implementation.js"
   },
   "author": "Milos Tosic",
   "license": "ISC",

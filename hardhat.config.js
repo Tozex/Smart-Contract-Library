@@ -1,8 +1,8 @@
 require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-waffle");
 require("@openzeppelin/hardhat-upgrades");
+require('@nomiclabs/hardhat-truffle5');
 require('dotenv').config()
-
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
@@ -16,6 +16,7 @@ module.exports = {
   },
   networks: {
     sepolia: {
+      chainId: 11155111,
       url: process.env.SEPOLIA_INFURA_SERVER || "",
       accounts:
         process.env.MNEMONIC !== undefined ? [process.env.MNEMONIC] : [],
@@ -60,6 +61,8 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: {
+      sepolia: process.env.ETHERSCAN_API_KEY,
+    }
   },
 };

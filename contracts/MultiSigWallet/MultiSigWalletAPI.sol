@@ -13,12 +13,15 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradea
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+import "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
  
 contract MultiSigWalletAPI is 
   Initializable,
-  OwnableUpgradeable, 
   IERC721ReceiverUpgradeable, 
-  ERC1155ReceiverUpgradeable
+  ERC1155ReceiverUpgradeable,
+  ERC2771ContextUpgradeable,
+  OwnableUpgradeable
 {
   using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -48,6 +51,7 @@ contract MultiSigWalletAPI is
   address public pendingNewOwner;
   uint public required;
   uint public transactionCount;
+  uint public indentifier;
 
   enum TokenStandard {
     ERC20,
@@ -110,16 +114,16 @@ contract MultiSigWalletAPI is
     if (msg.value > 0)
       emit Deposit(msg.sender, address(0), msg.value);
   }
-  
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  constructor(address trustedForwarder) ERC2771ContextUpgradeable(trustedForwarder){}
   /**
    * Public functions
    * @dev Contract constructor sets initial signers and required number of confirmations.
    * @param _signers List of initial signers.
    * @param _required Number of required confirmations.
    */
-  function initialize(address[] memory _signers, uint _required) external initializer validRequirement(_signers.length, _required) {
-    __Ownable_init();
-    
+  function initialize(address[] memory _signers, uint _required, address _vaultOwner, uint _indentifier) external initializer validRequirement(_signers.length, _required) {
+    _transferOwnership(_vaultOwner); // the current version of ownable does not allow to make custom definition of owner
     for (uint i = 0; i < _signers.length; ) {
       require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender, "Invalid signer");
       isSigner[_signers[i]] = true;
@@ -130,6 +134,7 @@ contract MultiSigWalletAPI is
     }
     signers = _signers;
     required = _required;
+    indentifier = _indentifier;
   }
 
 
@@ -589,5 +594,14 @@ contract MultiSigWalletAPI is
   function _getNow() internal view returns (uint256) {
       return block.timestamp;
   }
+  function _msgSender() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) returns(address) {
+          return ERC2771ContextUpgradeable._msgSender();
+  } 
+  function _msgData() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) virtual returns (bytes calldata) {
+          return ERC2771ContextUpgradeable._msgData();
+  }
+  function _contextSuffixLength() internal view virtual override(ContextUpgradeable, ERC2771ContextUpgradeable)  returns (uint256) {
+          return 20;
+  } 
 
 }

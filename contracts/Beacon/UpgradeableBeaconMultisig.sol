@@ -31,6 +31,8 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
 
     uint public required;
 
+    string public indentifier;
+
     /**
      * @dev Emitted when the implementation returned by the beacon is changed.
      */
@@ -63,12 +65,13 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
     constructor(
         address implementation_, 
         address[] memory _signers, 
-        uint _required
+        uint _required,
+        string memory _indentifier
     ) validRequirement(_signers.length, _required) {
         _setImplementation(implementation_);
 
         for (uint i = 0; i < _signers.length; ) {
-            require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender, "Invalid signer");
+            require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != _msgSender(), "Invalid signer");
             isSigner[_signers[i]] = true;
 
             unchecked {
@@ -77,6 +80,7 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
         }
         signers = _signers;
         required = _required;
+        indentifier = _indentifier;
     }
 
     /**
@@ -104,15 +108,15 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
         emit SignerChangeRequested(_oldSigner, _newSigner);
     }
 
-    function confirmSignerChange(address _oldSigner, address _newSigner) external signerExists(msg.sender) {
-        require(!signerChangeConfirmations[_newSigner][msg.sender], "You already confirmed.");
+    function confirmSignerChange(address _oldSigner, address _newSigner) external signerExists(_msgSender()) {
+        require(!signerChangeConfirmations[_newSigner][_msgSender()], "You already confirmed.");
         require(signerChangeRequests[_oldSigner] == _newSigner, "New signer address invalid.");
         require(_newSigner != address(0), "No pending signer update request.");
         require(_newSigner != owner(), "Onwer cannot be a signer.");
         require(!isSigner[_newSigner], "New signer is already a signer.");
 
         // Confirm the update by the current signer
-        signerChangeConfirmations[_newSigner][msg.sender] = true;
+        signerChangeConfirmations[_newSigner][_msgSender()] = true;
         
         if (isSignerChangeConfirmed(_newSigner)) {
             // Clear the signerChangeConfirmations for _newSigner
@@ -130,13 +134,13 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
         if (pendingNewImpl != address(0))
             clearImplChangeConfirmations(pendingNewImpl);
         pendingNewImpl = newImpl;
-        emit ImplChangeRequested(msg.sender, newImpl);
+        emit ImplChangeRequested(_msgSender(), newImpl);
     }
 
-    function confirmImplChange(address newImpl) public signerExists(msg.sender) notConfirmed(newImpl, msg.sender) {
+    function confirmImplChange(address newImpl) public signerExists(_msgSender()) notConfirmed(newImpl, _msgSender()) {
         require(pendingNewImpl == newImpl, "Invalid new implementation address");
-        confirmations[newImpl][msg.sender] = true;
-        emit Confirmation(msg.sender, newImpl);
+        confirmations[newImpl][_msgSender()] = true;
+        emit Confirmation(_msgSender(), newImpl);
         if (isImplChangeConfirmed(newImpl)) {
             // Clear the signerChangeConfirmations for _newSigner
             clearImplChangeConfirmations(newImpl);
