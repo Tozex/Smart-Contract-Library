@@ -13,12 +13,15 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradea
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+import "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
  
 contract MultiSigWalletAPI is 
   Initializable,
-  OwnableUpgradeable, 
   IERC721ReceiverUpgradeable, 
-  ERC1155ReceiverUpgradeable
+  ERC1155ReceiverUpgradeable,
+  ERC2771ContextUpgradeable,
+  OwnableUpgradeable
 {
   using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -110,7 +113,8 @@ contract MultiSigWalletAPI is
     if (msg.value > 0)
       emit Deposit(msg.sender, address(0), msg.value);
   }
-  
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  constructor(address trustedForwarder) ERC2771ContextUpgradeable(trustedForwarder){}
   /**
    * Public functions
    * @dev Contract constructor sets initial signers and required number of confirmations.
@@ -589,5 +593,13 @@ contract MultiSigWalletAPI is
   function _getNow() internal view returns (uint256) {
       return block.timestamp;
   }
-
+function _msgSender() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) returns(address) {
+        return ERC2771ContextUpgradeable._msgSender();
+} 
+function _msgData() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) virtual returns (bytes calldata) {
+        return ERC2771ContextUpgradeable._msgData();
+    }
+ function _contextSuffixLength() internal view virtual override(ContextUpgradeable, ERC2771ContextUpgradeable)  returns (uint256) {
+        return 20;
+    }
 }
