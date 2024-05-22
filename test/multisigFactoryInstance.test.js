@@ -2,6 +2,7 @@ const MultiSigWalletAPI = artifacts.require("MultiSigWalletAPI");
 const { expectRevert } = require('@openzeppelin/test-helpers');
 const { assert } = require('chai');
 
+
 const VaultProxyBeaconFactory = artifacts.require("VaultProxyBeaconFactory");
 
 
@@ -28,11 +29,13 @@ contract("MultiSigWalletAPI", (accounts) => {
     const event = logs.find(x => x.event === "VaultCreated");
     const newVaultAddress = event.args[0];
     erc20 = await ERC20.new("Tozex token", "TOZ", { from: owner });
+
     await erc20.mint(newVaultAddress, web3.utils.toWei("100000000", "ether"), { from: owner });
     walletInstance = await MultiSigWalletAPI.at(newVaultAddress);
   });
 
   it("should confirm and execute a transaction", async () => {
+
     const transactionValue = web3.utils.toWei("100", "ether");
     const destinationAddress = otherUser;
 

@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import "../Beacon/UpgradeableBeaconMultisig.sol";
 import "../MultiSigWallet/MultiSigWalletAPI.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
  contract VaultProxyBeaconFactory is OwnableUpgradeable{
     address public beacon;
 
