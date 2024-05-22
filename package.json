@@ -28,7 +28,9 @@
     "normal": "node script/alloc-normal.js",
     "vesting": "node script/alloc-vesting.js",
     "team": "node script/alloc-team.js",
-    "transferBackOwnerships": "node script/transferBackOwnerships.js"
+    "transferBackOwnerships": "node script/transferBackOwnerships.js",
+    "verify-factory":"npx hardhat verify --constructor-args migration/arguments/factory.js",
+    "verify-implementation":"npx hardhat verify --constructor-args migration/arguments/implementation.js"
   },
   "author": "Milos Tosic",
   "license": "ISC",

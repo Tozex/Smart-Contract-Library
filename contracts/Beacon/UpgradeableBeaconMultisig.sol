@@ -31,6 +31,8 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
 
     uint public required;
 
+    string public indentifier;
+
     /**
      * @dev Emitted when the implementation returned by the beacon is changed.
      */
@@ -63,7 +65,8 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
     constructor(
         address implementation_, 
         address[] memory _signers, 
-        uint _required
+        uint _required,
+        string memory _indentifier
     ) validRequirement(_signers.length, _required) {
         _setImplementation(implementation_);
 
@@ -77,6 +80,7 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
         }
         signers = _signers;
         required = _required;
+        indentifier = _indentifier;
     }
 
     /**

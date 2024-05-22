@@ -51,6 +51,7 @@ contract MultiSigWalletAPI is
   address public pendingNewOwner;
   uint public required;
   uint public transactionCount;
+  uint public indentifier;
 
   enum TokenStandard {
     ERC20,
@@ -121,9 +122,8 @@ contract MultiSigWalletAPI is
    * @param _signers List of initial signers.
    * @param _required Number of required confirmations.
    */
-  function initialize(address[] memory _signers, uint _required) external initializer validRequirement(_signers.length, _required) {
-    __Ownable_init();
-    
+  function initialize(address[] memory _signers, uint _required, address _vaultOwner, uint _indentifier) external initializer validRequirement(_signers.length, _required) {
+    _transferOwnership(_vaultOwner); // the current version of ownable does not allow to make custom definition of owner
     for (uint i = 0; i < _signers.length; ) {
       require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender, "Invalid signer");
       isSigner[_signers[i]] = true;
@@ -134,6 +134,7 @@ contract MultiSigWalletAPI is
     }
     signers = _signers;
     required = _required;
+    indentifier = _indentifier;
   }
 
 
@@ -593,13 +594,15 @@ contract MultiSigWalletAPI is
   function _getNow() internal view returns (uint256) {
       return block.timestamp;
   }
-function _msgSender() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) returns(address) {
-        return ERC2771ContextUpgradeable._msgSender();
-} 
-function _msgData() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) virtual returns (bytes calldata) {
-        return ERC2771ContextUpgradeable._msgData();
-    }
- function _contextSuffixLength() internal view virtual override(ContextUpgradeable, ERC2771ContextUpgradeable)  returns (uint256) {
-        return 20;
-    }
+
+  function _msgSender() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) returns(address) {
+          return ERC2771ContextUpgradeable._msgSender();
+  } 
+  function _msgData() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) virtual returns (bytes calldata) {
+          return ERC2771ContextUpgradeable._msgData();
+  }
+  function _contextSuffixLength() internal view virtual override(ContextUpgradeable, ERC2771ContextUpgradeable)  returns (uint256) {
+          return 20;
+  } 
+
 }
