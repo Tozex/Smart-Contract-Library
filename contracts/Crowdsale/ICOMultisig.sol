@@ -1,10 +1,8 @@
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.1;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -57,13 +55,13 @@ contract ICOMultisig is  Pausable {
 
   IMultiSigWallet public multisig;
 
-  // TOZ : DPS Ratio
+  // TOZ : Token Ratio
   uint256 tozRatio;
 
-  // USDC : DPS Ratio
+  // USDC : Token Ratio
   uint256 usdcRatio;
 
-  // Decimals vlaue of the token
+  // Decimals vlaue of the reward token
   uint256 tokenDecimal;
 
   // Decimals vlaue of the token
@@ -282,6 +280,7 @@ contract ICOMultisig is  Pausable {
   function _getTokenAmount(TokenType _tt, uint256 _amount) internal view returns (uint256) {
     uint256 ratio = _tt == TokenType.TOZ ? tozRatio : usdcRatio;
     uint256 decimal = _tt == TokenType.TOZ ? 18 : usdcDecimal;
+
     uint256 _amountToSend = _amount * (ratio / 10000) * 10 ** (tokenDecimal - decimal);
     return _amountToSend;
   }
