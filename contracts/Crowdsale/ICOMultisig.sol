@@ -11,15 +11,17 @@ import "../MultiSigWallet/IMultiSigWallet.sol";
 // SPDX-License-Identifier: GPL-3.0
 
 
+
+
 /**
- * @title ICOStablecoin
- * @dev ICO is a base contract for managing a public token sale,
- * allowing investors to purchase tokens with Stablecoin. This contract implements
- * such functionality in its most fundamental form and can be extended to provide additional
+ * @title ICOMultisig from which the collected tokens are managed by a MultisigWallet 
+ * @dev ICO is a base contract for managing token sale,
+ * allowing investors to purchase tokens with Stablecoin USDC and Toz token  
+ * this contract implements such functionality in its most fundamental form and can be extended to provide additional
  * functionality and/or custom behavior.
  * The external interface represents the basic interface for purchasing tokens, and conform
- * the base architecture for a public sale. They are *not* intended to be modified / overriden.
- * The internal interface conforms the extensible and modifiable surface of public token sales. Override
+ * the base architecture for a any token sale. They are *not* intended to be modified / overriden.
+ * The internal interface conforms the extensible and modifiable surface of token sales. Override
  * the methods to add functionality. Consider using 'super' where appropiate to concatenate
  * behavior.
  */
@@ -53,14 +55,14 @@ contract ICOMultisig is  Pausable {
 
   IMultiSigWallet public multisig;
 
-  // TOZ : DPS Ratio
+  // TOZ : Token Ratio
   uint256 tozRatio;
 
-  // USDC : DPS Ratio
+  // USDC : Token Ratio
   uint256 usdcRatio;
 
-  // Decimals vlaue of the token
-  uint256 tokenDecimals;
+  // Decimals vlaue of the reward token
+  uint256 tokenDecimal;
 
   // Decimals vlaue of the token
   uint256 usdcDecimal;
@@ -72,9 +74,6 @@ contract ICOMultisig is  Pausable {
   uint256 public totalDepositAmount;
 
   uint256 private pendingTokenToSend;
-
-  // Minimum purchase size of incoming Stablecoin token = 10$.
-  uint256 public constant minPurchaseIco = 10 * 1e18;
 
   // Hardcap goal in Stablecoin during ICO in Stablecoin 
   uint256 public icoMaxCap;
@@ -106,7 +105,7 @@ contract ICOMultisig is  Pausable {
    * @param _usdcRatio The token ratio btw USDC and reward Token
    * @param _usdcRatio The token ratio btw USDC and reward Token
    * @param _usdcDecimal The decimal of the USDC stabelcoin
-   * @param _tokenDecimals The decimal of reward token
+   * @param _tokenDecimal The decimal of reward token
    * @param _icoSoftCap The softcap amount of reward token.
    * @param _icoMaxCap The maxcap amount of reward token.
    */
@@ -117,7 +116,7 @@ contract ICOMultisig is  Pausable {
     uint256 _tozRatio,
     uint256 _usdcRatio,
     uint256 _usdcDecimal,
-    uint256 _tokenDecimals,
+    uint256 _tokenDecimal,
     uint256 _icoSoftCap,
     uint256 _icoMaxCap
   ) {
@@ -128,7 +127,7 @@ contract ICOMultisig is  Pausable {
     tozRatio = _tozRatio;
     usdcRatio = _usdcRatio;
     usdcDecimal = _usdcDecimal;
-    tokenDecimals = _tokenDecimals;
+    tokenDecimal = _tokenDecimal;
     icoSoftCap = _icoSoftCap;
     icoMaxCap = _icoMaxCap;
 
@@ -146,12 +145,13 @@ contract ICOMultisig is  Pausable {
    * @param _amount Stablecoin token amount
    */
   function buyTokens(TokenType _tt, uint256 _amount) external whenNotPaused {
+    uint256 decimal = _tt == TokenType.TOZ ? 18 : usdcDecimal;
     require(ico, "ICO.buyTokens: ICO is already finished.");
     require(unlockTime == 0 || _getNow() < unlockTime, "ICO.buyTokens: Buy period already finished.");
+    require(_amount >= 10 * 10** (decimal), "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");   // Minimum purchase size of incoming Stablecoin token = 10$.
 
     uint256 tokenAmount = _getTokenAmount(_tt, _amount);
 
-    require(tokenAmount >= minPurchaseIco, "ICO.buyTokens: Failed the amount is not respecting the minimum deposit of ICO");
     require(totalDepositAmount + tokenAmount <= icoMaxCap, "ICO.buyTokens: Failed the hardcap is reached");
     require(token.balanceOf(address(this)) >= totalDepositAmount + tokenAmount, "ICO.buyTokens: not enough token to send");
 
@@ -280,7 +280,8 @@ contract ICOMultisig is  Pausable {
   function _getTokenAmount(TokenType _tt, uint256 _amount) internal view returns (uint256) {
     uint256 ratio = _tt == TokenType.TOZ ? tozRatio : usdcRatio;
     uint256 decimal = _tt == TokenType.TOZ ? 18 : usdcDecimal;
-    uint256 _amountToSend = _amount * (ratio / 10000) * 10 ** (18 - decimal);
+
+    uint256 _amountToSend = _amount * (ratio / 10000) * 10 ** (tokenDecimal - decimal);
     return _amountToSend;
   }
 
