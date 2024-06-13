@@ -113,8 +113,8 @@ contract ICOMultisig is  Pausable {
     IERC20 _tozToken,
     IERC20 _usdcToken,
     IERC20 _token, 
-    tozRatio = _tozRatio    /* multiple by 100 to manage decimals eg ( 0.1 toz per token equal to 10) */
-    usdcRatio = _usdcRatio  /* multiple by 100 to manage decimals eg ( 0.5 usdc per token equal to 50) */
+    tozRatio = _tozRatio,    /* multiple by 100 to manage decimals eg ( 0.1 toz per token equal to 10) */
+    usdcRatio = _usdcRatio,  /* multiple by 100 to manage decimals eg ( 0.5 usdc per token equal to 50) */
     uint256 _usdcDecimal,
     uint256 _tokenDecimal,
     uint256 _icoSoftCap,
