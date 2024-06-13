@@ -113,8 +113,8 @@ contract ICOMultisig is  Pausable {
     IERC20 _tozToken,
     IERC20 _usdcToken,
     IERC20 _token, 
-    uint256 _tozRatio,
-    uint256 _usdcRatio,
+    tozRatio = _tozRatio.mul(100);  /* multiple by 100 to manage decimals eg ( 1 toz per token equal to 100) */
+    usdcRatio = _usdcRatio.mul(100); /* multiple by 100 to manage decimals eg ( 0.5 usdc per token equal to 50) */
     uint256 _usdcDecimal,
     uint256 _tokenDecimal,
     uint256 _icoSoftCap,
@@ -281,7 +281,7 @@ contract ICOMultisig is  Pausable {
     uint256 ratio = _tt == TokenType.TOZ ? tozRatio : usdcRatio;
     uint256 decimal = _tt == TokenType.TOZ ? 18 : usdcDecimal;
 
-    uint256 _amountToSend = _amount * (ratio / 10000) * 10 ** (tokenDecimal - decimal);
+    uint256 _amountToSend = _amount.mul(ratio / 10000).mul(10 ** (tokenDecimal - decimal));
     return _amountToSend;
   }
 
