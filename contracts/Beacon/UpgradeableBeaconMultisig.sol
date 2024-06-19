@@ -68,7 +68,7 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
         _setImplementation(implementation_);
 
         for (uint i = 0; i < _signers.length; ) {
-            require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != _msgSender(), "Invalid signer");
+            require(!isSigner[_signers[i]] && _signers[i] != address(0) /* && _signers[i] != _msgSender()*/, "Invalid signer");
             isSigner[_signers[i]] = true;
 
             unchecked {
@@ -87,7 +87,7 @@ contract UpgradeableBeaconMultisig is IBeacon, Ownable {
     }
 
     function transferOwnership(address newOwner) public override virtual onlyOwner {
-        require(!isSigner[newOwner], "Ownable: new owner cannot be signer.");
+        // require(!isSigner[newOwner], "Ownable: new owner cannot be signer.");
         super.transferOwnership(newOwner);
     }
     function requestSignerChange(address _oldSigner, address _newSigner) external onlyOwner {

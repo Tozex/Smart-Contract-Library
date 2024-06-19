@@ -1,5 +1,6 @@
 const MultiSigWalletAPI = artifacts.require("MultiSigWalletAPI");
 const { expectRevert } = require('@openzeppelin/test-helpers');
+const { assert } = require('chai');
 
 const VaultProxyBeaconFactory = artifacts.require("VaultProxyBeaconFactory");
 
@@ -10,29 +11,28 @@ contract("MultiSigWalletAPI", (accounts) => {
   let walletInstance;
   let implementationInstance;
 
-  const [owner, signer1, signer2, signer3, signer4, signer5, signer6, otherUser, otherUser1] = accounts;
+  const [owner, signer1, signer2, signer3, signer4, signer5, signer6, otherUser, vaultOwner] = accounts;
 
-
+  let vaultFactoryInstance;
+  const initialSigners = [signer1, signer2, signer4, signer5]; // Initial signers for the wallet
+  const requiredSignatures = 2; // Number of required signatures for a transaction
+  const forwarderAddress = "0xFD4973FeB2031D4409fB57afEE5dF2051b171104";
+  const identifier = "1";
   beforeEach(async () => {
-    let vaultFactoryInstance;
-    const forwarderAddress = "0xFD4973FeB2031D4409fB57afEE5dF2051b171104";
 
-    const requiredSignatures = 2; // Number of required signatures for a transaction
-    const initialSigners = [signer1, signer2, signer4, signer5]; // Initial signers for the wallet
     implementationInstance = await MultiSigWalletAPI.new(forwarderAddress);
 
-    vaultFactoryInstance = await VaultProxyBeaconFactory.new(implementationInstance.address, initialSigners, requiredSignatures, owner);
+    vaultFactoryInstance = await VaultProxyBeaconFactory.new(implementationInstance.address, initialSigners, requiredSignatures, { from: owner });
 
-    const {logs} = await vaultFactoryInstance.create(initialSigners, requiredSignatures);
+    const {logs} = await vaultFactoryInstance.create(initialSigners, requiredSignatures, identifier, {from: owner});
     const event = logs.find(x => x.event === "VaultCreated");
     const newVaultAddress = event.args[0];
     erc20 = await ERC20.new("Tozex token", "TOZ", { from: owner });
-    console.log("ERC20 address: ",newVaultAddress);
     await erc20.mint(newVaultAddress, web3.utils.toWei("100000000", "ether"), { from: owner });
     walletInstance = await MultiSigWalletAPI.at(newVaultAddress);
   });
 
-  it("should confirm, revoke, and execute a transaction", async () => {
+  it("should confirm and execute a transaction", async () => {
     const transactionValue = web3.utils.toWei("100", "ether");
     const destinationAddress = otherUser;
 
@@ -61,5 +61,24 @@ contract("MultiSigWalletAPI", (accounts) => {
     const destinationBalance = await erc20.balanceOf(destinationAddress);
     assert.equal(destinationBalance, transactionValue, "Destination balance should increase by the transaction value");
   });
+  it("vault owner should the defined address", async () => {
+    assert.equal(await walletInstance.owner(), owner, "the vault owner should be the defined address");
+  });
+  it("should match the vaultOwner for new created vault", async () => {
 
+    const {logs} = await vaultFactoryInstance.create(initialSigners, requiredSignatures, identifier, {from: vaultOwner});
+    const event = logs.find(x => x.event === "VaultCreated");
+    const newVaultAddress = event.args[0];
+    const walletInstance2 = await MultiSigWalletAPI.at(newVaultAddress);
+    assert.equal(await walletInstance2.owner(), vaultOwner, "the vault owner should be the defined address");
+    
+  });
+  it("Should be able to update the ownership of the vault factory", async () => {
+    await vaultFactoryInstance.transferOwnership(signer2, { from: owner });
+    assert.equal(await vaultFactoryInstance.owner(), signer2, "the forwarder address should be the defined address");
+  });
+  it("Should be able to update the ownership of the vault", async () => {
+    await walletInstance.transferOwnership(signer2, { from: owner });
+    assert.equal(await walletInstance.owner(), signer2, "the forwarder address should be the defined address");
+  });
 });

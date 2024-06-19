@@ -40,6 +40,7 @@ contract MultiSigWalletAPI is
   event SignerChangeRequested(address indexed currentSigner, address indexed newSigner);
   event SignerUpdated(address indexed oldSigner, address indexed newSigner);
   event OwnerChangeRequested(address indexed newOwner);
+  event SignerUpdateConfirmation(address indexed signer, address indexed oldSigner, address indexed newSigner);
 
   mapping(uint => Transaction) public transactions;
   mapping(uint => mapping(address => bool)) public confirmations;
@@ -51,6 +52,7 @@ contract MultiSigWalletAPI is
   address public pendingNewOwner;
   uint public required;
   uint public transactionCount;
+  uint public indentifier;
 
   enum TokenStandard {
     ERC20,
@@ -111,7 +113,7 @@ contract MultiSigWalletAPI is
    */
   receive() external payable {
     if (msg.value > 0)
-      emit Deposit(msg.sender, address(0), msg.value);
+      emit Deposit(_msgSender(), address(0), msg.value);
   }
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(address trustedForwarder) ERC2771ContextUpgradeable(trustedForwarder){}
@@ -121,11 +123,10 @@ contract MultiSigWalletAPI is
    * @param _signers List of initial signers.
    * @param _required Number of required confirmations.
    */
-  function initialize(address[] memory _signers, uint _required) external initializer validRequirement(_signers.length, _required) {
-    __Ownable_init();
-    
+  function initialize(address[] memory _signers, uint _required, address _vaultOwner, uint _indentifier) external initializer validRequirement(_signers.length, _required) {
+    _transferOwnership(_vaultOwner); // the current version of ownable does not allow to make custom definition of owner
     for (uint i = 0; i < _signers.length; ) {
-      require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != msg.sender, "Invalid signer");
+      require(!isSigner[_signers[i]] && _signers[i] != address(0) /*&& _signers[i] != _msgSender()*/, "Invalid signer");
       isSigner[_signers[i]] = true;
 
       unchecked {
@@ -134,6 +135,7 @@ contract MultiSigWalletAPI is
     }
     signers = _signers;
     required = _required;
+    indentifier = _indentifier;
   }
 
 
@@ -145,7 +147,6 @@ contract MultiSigWalletAPI is
   function requestSignerChange(address _oldSigner, address _newSigner) external onlyOwner {
     require(isSigner[_oldSigner], "Old signer does not exist.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
-    require(_newSigner != owner(), "Onwer cannot be a signer.");
     
     // Clear the signerChangeConfirmations for _newSigner if a change is "in-progress"
     if (signerChangeRequests[_oldSigner] != address(0)) {
@@ -161,15 +162,16 @@ contract MultiSigWalletAPI is
    * @param _oldSigner The address of the current signer to be replaced.
    * @param _newSigner The address of the new signer to be added. 
    */
-  function confirmSignerChange(address _oldSigner, address _newSigner) external signerExists(msg.sender) {
-    require(!signerChangeConfirmations[_newSigner][msg.sender], "You already confirmed.");
+  function confirmSignerChange(address _oldSigner, address _newSigner) external signerExists(_msgSender()) {
+    require(!signerChangeConfirmations[_newSigner][_msgSender()], "You already confirmed.");
     require(signerChangeRequests[_oldSigner] == _newSigner, "New signer address invalid.");
     require(_newSigner != address(0), "No pending signer update request.");
     require(_newSigner != owner(), "Onwer cannot be a signer.");
     require(!isSigner[_newSigner], "New signer is already a signer.");
 
     // Confirm the update by the current signer
-    signerChangeConfirmations[_newSigner][msg.sender] = true;
+    signerChangeConfirmations[_newSigner][_msgSender()] = true;
+    emit SignerUpdateConfirmation(_msgSender(), _oldSigner, _newSigner);
     
     if (isSignerChangeConfirmed(_newSigner)) {
       // Clear the signerChangeConfirmations for _newSigner
@@ -199,10 +201,10 @@ contract MultiSigWalletAPI is
     emit OwnerChangeRequested(_newOwner);
   }
 
-  function confirmOwnerChange(address newOwner) public signerExists(msg.sender) {
+  function confirmOwnerChange(address newOwner) public signerExists(_msgSender()) {
     require(pendingNewOwner == newOwner, "Invalid new owner address");
-    require(!ownerChangeConfirmations[msg.sender], "You already confirmed.");
-    ownerChangeConfirmations[msg.sender] = true;
+    require(!ownerChangeConfirmations[_msgSender()], "You already confirmed.");
+    ownerChangeConfirmations[_msgSender()] = true;
     if (isOwnerChangeConfirmed()) {
         // Clear the signerChangeConfirmations for _newSigner
         clearOwnerChangeConfirmations();
@@ -214,20 +216,20 @@ contract MultiSigWalletAPI is
   function depositERC20(address token, uint amount) external {
     require(token != address(0) , "invalid token");
     require(amount > 0 , "invalid amount");
-    IERC20Upgradeable(token).safeTransferFrom(msg.sender, address(this), amount);
-    emit ERC20Deposited(msg.sender, token, amount); 
+    IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+    emit ERC20Deposited(_msgSender(), token, amount); 
   }
 
   function depositERC721(address token, uint tokenId) external {
     // Transfer the ERC721 token to the multisig contract
-    IERC721Upgradeable(token).safeTransferFrom(msg.sender, address(this), tokenId);
-    emit ERC721Deposited(msg.sender, token, tokenId);
+    IERC721Upgradeable(token).safeTransferFrom(_msgSender(), address(this), tokenId);
+    emit ERC721Deposited(_msgSender(), token, tokenId);
   }
 
   function depositERC1155(address token, uint tokenId, uint amount) external {
     // Transfer the ERC1155 tokens to the multisig contract
-    IERC1155Upgradeable(token).safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
-    emit ERC1155Deposited(msg.sender, token, tokenId, amount);
+    IERC1155Upgradeable(token).safeTransferFrom(_msgSender(), address(this), tokenId, amount, "");
+    emit ERC1155Deposited(_msgSender(), token, tokenId, amount);
   }
 
   /**
@@ -236,7 +238,7 @@ contract MultiSigWalletAPI is
    * @param value Transaction ether value.
    * @param data Transaction data payload.
    */
-  function submitTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp) public signerExists(msg.sender) returns (uint transactionId) {
+  function submitTransaction(address payable destination, address token, TokenStandard ts, uint tokenId, uint value, bytes memory data, uint confirmTimestamp) public signerExists(_msgSender()) returns (uint transactionId) {
     uint txTimestamp = _getNow();
     transactionId = addTransaction(destination, token, ts, tokenId, value, data, confirmTimestamp, txTimestamp);
     confirmTransaction(transactionId);
@@ -257,10 +259,10 @@ contract MultiSigWalletAPI is
    * @dev Allows an signer to confirm a transaction.
    * @param transactionId Transaction ID.
    */
-  function confirmTransaction(uint transactionId) public signerExists(msg.sender) transactionExists(transactionId) notConfirmed(transactionId, msg.sender) {
+  function confirmTransaction(uint transactionId) public signerExists(_msgSender()) transactionExists(transactionId) notConfirmed(transactionId, _msgSender()) {
     require(!isTransactionTimedOut(transactionId), "Transaction timed out.");
-    confirmations[transactionId][msg.sender] = true;
-    emit Confirmation(msg.sender, transactionId);
+    confirmations[transactionId][_msgSender()] = true;
+    emit Confirmation(_msgSender(), transactionId);
     executeTransaction(transactionId);
   }
 
@@ -593,13 +595,20 @@ contract MultiSigWalletAPI is
   function _getNow() internal view returns (uint256) {
       return block.timestamp;
   }
-function _msgSender() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) returns(address) {
-        return ERC2771ContextUpgradeable._msgSender();
-} 
-function _msgData() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) virtual returns (bytes calldata) {
-        return ERC2771ContextUpgradeable._msgData();
-    }
- function _contextSuffixLength() internal view virtual override(ContextUpgradeable, ERC2771ContextUpgradeable)  returns (uint256) {
-        return 20;
-    }
+  function _msgSender() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) returns(address) {
+          return ERC2771ContextUpgradeable._msgSender();
+  } 
+  function _msgData() internal view override(ContextUpgradeable, ERC2771ContextUpgradeable) virtual returns (bytes calldata) {
+          return ERC2771ContextUpgradeable._msgData();
+  }
+  function _contextSuffixLength() internal view virtual override(ContextUpgradeable, ERC2771ContextUpgradeable)  returns (uint256) {
+          return 20;
+  }
+    /**
+   * @dev This empty reserved space is put in place to allow future versions to add new
+   * variables without shifting down storage in the inheritance chain.
+   * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+   */
+  uint256[49] private __gap;
+
 }
