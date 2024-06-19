@@ -1,37 +1,31 @@
-pragma solidity ^0.8.1;
+pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../MultiSigWallet/IMultiSigWallet.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "../contracts/IMultiSigWallet.sol";
 
 // SPDX-License-Identifier: GPL-3.0
 
-
-
-
 /**
- * @title ICOMultisig from which the collected tokens are managed by a MultisigWallet 
- * @dev ICO is a base contract for managing token sale,
- * allowing investors to purchase tokens with Stablecoin USDC and Toz token  
- * this contract implements such functionality in its most fundamental form and can be extended to provide additional
+ * @title ICO CONTRACT using Multisig Wallet to safe the collected fund,
+ * @dev ICO is a base contract for managing a public token sale,
+ * allowing investors to purchase tokens with Stablecoin. This contract implements
+ * such functionality in its most fundamental form and can be extended to provide additional
  * functionality and/or custom behavior.
  * The external interface represents the basic interface for purchasing tokens, and conform
- * the base architecture for a any token sale. They are *not* intended to be modified / overriden.
- * The internal interface conforms the extensible and modifiable surface of token sales. Override
+ * the base architecture for a public sale. They are *not* intended to be modified / overriden.
+ * The internal interface conforms the extensible and modifiable surface of public token sales. Override
  * the methods to add functionality. Consider using 'super' where appropiate to concatenate
  * behavior.
  */
 
-contract ICOMultisig is  Pausable {
-
-
+contract ICOMultisig is Pausable {
+ 
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
-  
+
   struct UserDetail {
     TokenType tt;
     uint256 depositAmount;
@@ -67,7 +61,7 @@ contract ICOMultisig is  Pausable {
   // Decimals vlaue of the token
   uint256 usdcDecimal;
 
-  // Address where funds are collected
+  // Address of tozex admin
   address public wallet; 
 
   // Amount of Stablecoin raised during the ICO period
@@ -85,7 +79,7 @@ contract ICOMultisig is  Pausable {
   uint256 public unlockTime;
 
   // ICO start/end
-  bool public ico = false;         // State of the ongoing sales ICO period
+  bool public ico = true;         // State of the ongoing sales ICO period
 
   // User deposit Stablecoin amount
   mapping(address => UserDetail) public userDetails;
@@ -95,6 +89,10 @@ contract ICOMultisig is  Pausable {
   event WithdrawStablecoin(address indexed sender, address indexed recipient, uint256 amount);
   event WithdrawToztoken(address indexed sender, address indexed recipient, uint256 amount);
   event Withdrawtoken(address indexed sender, address indexed recipient, uint256 amount);
+  event UpdateTozexAdminWallet(address indexed previousTozexAdmin, address indexed newTozexAdmin);
+  event RefundExecuted(address indexed sender, address indexed buyer, uint256 amount);
+  event TokenDistributed(address indexed sender, address indexed buyer, uint256 amount);
+  event RefundRequested(address indexed sender, address indexed multisig, uint256 tozBalance, uint256 usdcBalance);
 
 
   /**
@@ -109,12 +107,14 @@ contract ICOMultisig is  Pausable {
    * @param _icoSoftCap The softcap amount of reward token.
    * @param _icoMaxCap The maxcap amount of reward token.
    */
+
   constructor(
     IERC20 _tozToken,
     IERC20 _usdcToken,
     IERC20 _token, 
-    tozRatio = _tozRatio,    /* multiple by 100 to manage decimals eg ( 0.1 toz per token equal to 10) */
-    usdcRatio = _usdcRatio,  /* multiple by 100 to manage decimals eg ( 0.5 usdc per token equal to 50) */
+    address _wallet,
+    uint256 _tozRatio,
+    uint256 _usdcRatio,
     uint256 _usdcDecimal,
     uint256 _tokenDecimal,
     uint256 _icoSoftCap,
@@ -124,16 +124,20 @@ contract ICOMultisig is  Pausable {
     tozToken = _tozToken;
     usdcToken = _usdcToken;
     token = _token;
-    tozRatio = _tozRatio;
-    usdcRatio = _usdcRatio;
+    wallet = _wallet;
+    tozRatio = _tozRatio; /* multiple by 100 to manage decimals eg ( 1 toz per token equal to 100) */
+    usdcRatio = _usdcRatio; /* multiple by 100 to manage decimals eg ( 0.5 usdc per token equal to 50) */
     usdcDecimal = _usdcDecimal;
     tokenDecimal = _tokenDecimal;
     icoSoftCap = _icoSoftCap;
     icoMaxCap = _icoMaxCap;
 
-    // start ico
-    ico = true;
   }
+
+  modifier onlyTozex() {
+        require(msg.sender == wallet, "Not authorized operation");
+        _;
+    }
 
   // -----------------------------------------
   // ICO external interface
@@ -185,46 +189,56 @@ contract ICOMultisig is  Pausable {
     }
   }
 
-
   /* ADMINISTRATIVE FUNCTIONS */
 
   // Update the toz ICO rate
-  function updateTozRatio(uint256 _tozRatio) external   {
+  function updateTozRatio(uint256  _tozRatio) external onlyTozex {
     tozRatio = _tozRatio;
   }
 
   // Update the usdc ICO rate
-  function updateUsdcRatio(uint256 _usdcRatio) external   {
+  function updateUsdcRatio(uint256 _usdcRatio) external onlyTozex {
     usdcRatio = _usdcRatio;
   }
 
   // Update the token ICO SOFT CAP
-  function updateIcoSoftCap(uint256 _icoSoftCap) external   {
+  function updateIcoSoftCap(uint256 _icoSoftCap) external onlyTozex  {
     icoSoftCap = _icoSoftCap;
   }
 
   // Update the token ICO MAX CAP
-  function updateIcoMaxCap(uint256 _icoMaxCap) external   {
+  function updateIcoMaxCap(uint256 _icoMaxCap) external onlyTozex {
     icoMaxCap = _icoMaxCap;
   }
 
  // start/close Ico
-  function setIco(bool status) external   {
-    ico = status;
+  function setIco(bool status) external onlyTozex {
+    ico = status; // true = 1 or false = 0
   }
 
-  function setMultisig(IMultiSigWallet _multisig) external   {
+  function setMultisig(IMultiSigWallet _multisig) external onlyTozex { 
+    require( _multisig != IMultiSigWallet(address(0)), "Address shouldn't be zero");
     multisig = _multisig;
   }
 
-  function requestRefund() external   {
+  function UpdateTozexAdmin(address newTozexAdmin) public onlyTozex {
+      require(newTozexAdmin != address(0), "Address shouldn't be zero");
+      emit UpdateTozexAdminWallet(wallet, newTozexAdmin);
+      wallet = newTozexAdmin;
+    }
+
+  function requestRefund() external {
+    require(ico != true, "ICO is running, please close it");
+    require(unlockTime == 0 || _getNow() > unlockTime, "Buying period is not finished, please wait it.");
     uint256 tozBalance = tozToken.balanceOf(address(multisig));
     uint256 usdcBalance = usdcToken.balanceOf(address(multisig));
     multisig.submitTransaction(payable(address(this)), address(tozToken), 0, 0, tozBalance, "", 0);
     multisig.submitTransaction(payable(address(this)), address(usdcToken), 0, 0, usdcBalance, "", 0);
+    emit RefundRequested(address(this), address(multisig), tozBalance, usdcBalance);
+
   }
   
-  function refundToken() external   {
+  function refundToken() external onlyTozex {
     for(uint256 i = 0; i < userAddresses.length;) {
       UserDetail storage userDetail = userDetails[userAddresses[i]];
       IERC20 payToken = userDetail.tt == TokenType.TOZ ? tozToken : usdcToken;
@@ -233,6 +247,7 @@ contract ICOMultisig is  Pausable {
         userDetail.depositAmount = 0;
         userDetail.totalRewardAmount = 0;
         userDetail.remainingAmount = 0;
+        emit RefundExecuted(address(this), userAddresses[i], userDetail.depositAmount);
       }
       
       unchecked {
@@ -247,6 +262,8 @@ contract ICOMultisig is  Pausable {
       if(userDetail.remainingAmount > 0) {
         token.safeTransfer(userAddresses[i], userDetail.remainingAmount);
         userDetail.remainingAmount = 0;
+        emit TokenDistributed(address(this), userAddresses[i], userDetail.remainingAmount);
+
       }
       
       unchecked {
@@ -256,21 +273,21 @@ contract ICOMultisig is  Pausable {
   }
 
   //Withdraw remaining Stablecoin
-  function withdrawStablecoin() external   {
+  function withdrawStablecoin() external onlyTozex  {
     uint256 StablecoinBalance = usdcToken.balanceOf(address(this));
     usdcToken.safeTransfer(wallet, StablecoinBalance);
     emit WithdrawStablecoin(address(this), wallet, StablecoinBalance);
   }
 
   //Withdraw remaining Toz Token
-  function withdrawToztoken() external   {
+  function withdrawToztoken() external onlyTozex  {
     uint256 TozTokenBalance = tozToken.balanceOf(address(this));
     tozToken.safeTransfer(wallet, TozTokenBalance);
     emit WithdrawToztoken(address(this), wallet, TozTokenBalance);
   }
 
   //Withdraw remaining token
-  function withdrawtoken() external   {
+  function withdrawtoken() external onlyTozex {
     uint256 TokenBalance = token.balanceOf(address(this));
     token.safeTransfer(wallet, TokenBalance);
     emit Withdrawtoken(address(this), wallet, TokenBalance);
