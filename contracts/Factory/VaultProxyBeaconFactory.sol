@@ -12,14 +12,14 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
     
     event VaultCreated(address proxyAddress, address owner, address[] signers, uint required, string indentifier);
 
-    constructor(address implementation_, address[] memory signers, uint required) initializer {
-        __Ownable_init();
+    constructor(address implementation_, address[] memory signers, uint required, address owner) initializer {
+        _transferOwnership(owner);
         UpgradeableBeaconMultisig _beacon = new UpgradeableBeaconMultisig(
             implementation_,
             signers,
             required
         );
-        _beacon.transferOwnership(_msgSender());
+        _beacon.transferOwnership(owner);
         beacon = address(_beacon);
     }
 
