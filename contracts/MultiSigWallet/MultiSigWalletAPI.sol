@@ -126,7 +126,7 @@ contract MultiSigWalletAPI is
   function initialize(address[] memory _signers, uint _required, address _vaultOwner, uint _indentifier) external initializer validRequirement(_signers.length, _required) {
     _transferOwnership(_vaultOwner); // the current version of ownable does not allow to make custom definition of owner
     for (uint i = 0; i < _signers.length; ) {
-      require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != _msgSender(), "Invalid signer");
+      require(!isSigner[_signers[i]] && _signers[i] != address(0) && _signers[i] != owner(), "Invalid signer");
       isSigner[_signers[i]] = true;
 
       unchecked {

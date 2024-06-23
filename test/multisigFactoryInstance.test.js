@@ -11,7 +11,7 @@ contract("MultiSigWalletAPI", (accounts) => {
   let walletInstance;
   let implementationInstance;
 
-  const [owner, signer1, signer2, signer3, signer4, signer5, signer6, otherUser, vaultOwner] = accounts;
+  const [owner, signer1, signer2, signer3, signer4, signer5, signer6, otherUser, vaultCreator] = accounts;
 
   let vaultFactoryInstance;
   const initialSigners = [signer1, signer2, signer4, signer5]; // Initial signers for the wallet
@@ -22,7 +22,7 @@ contract("MultiSigWalletAPI", (accounts) => {
 
     implementationInstance = await MultiSigWalletAPI.new(forwarderAddress);
 
-    vaultFactoryInstance = await VaultProxyBeaconFactory.new(implementationInstance.address, initialSigners, requiredSignatures, { from: owner });
+    vaultFactoryInstance = await VaultProxyBeaconFactory.new(forwarderAddress, implementationInstance.address, initialSigners, requiredSignatures, owner, { from: owner });
 
     const {logs} = await vaultFactoryInstance.create(initialSigners, requiredSignatures, identifier, {from: owner});
     const event = logs.find(x => x.event === "VaultCreated");
@@ -64,13 +64,13 @@ contract("MultiSigWalletAPI", (accounts) => {
   it("vault owner should the defined address", async () => {
     assert.equal(await walletInstance.owner(), owner, "the vault owner should be the defined address");
   });
-  it("should match the vaultOwner for new created vault", async () => {
+  it("should match the vaultCreator for new created vault", async () => {
 
-    const {logs} = await vaultFactoryInstance.create(initialSigners, requiredSignatures, identifier, {from: vaultOwner});
+    const {logs} = await vaultFactoryInstance.create(initialSigners, requiredSignatures, identifier, {from: vaultCreator});
     const event = logs.find(x => x.event === "VaultCreated");
     const newVaultAddress = event.args[0];
     const walletInstance2 = await MultiSigWalletAPI.at(newVaultAddress);
-    assert.equal(await walletInstance2.owner(), vaultOwner, "the vault owner should be the defined address");
+    assert.equal(await walletInstance2.owner(), owner, "the vault owner should be the defined address");
     
   });
   it("Should be able to update the ownership of the vault factory", async () => {
