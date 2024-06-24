@@ -5,20 +5,17 @@ const hre = require("hardhat");
 async function main() {
 
   // deploy implementation
-  const impl = await hre.ethers.deployContract('MultiSigWalletAPI', ["0xbdeA59c8801658561a16fF58D68FC2b198DE4E93"]);
+  const forwarderAddress = "0xbdeA59c8801658561a16fF58D68FC2b198DE4E93";
+  const owner = "0xC88522F40CCdfCe593E027F230c57a5F24211344";
+  const impl = await hre.ethers.deployContract('MultiSigWalletAPI', [forwarderAddress]);
   await impl.deployed();
   console.log("Multisig implementation deployed to:", impl.address);
 
   // deploy beacon factory
-  const beaconFactory = await hre.ethers.deployContract('VaultProxyBeaconFactory', [impl.address, ["0xCA1D3D369Ac056A8857572B1437Ee2E43D6c73bF", "0xEBE8Fc0E1B84714Cc85C72C3E6EBb037247AEAA1"], 2]);
+  const beaconFactory = await hre.ethers.deployContract('VaultProxyBeaconFactory', [forwarderAddress, impl.address, ["0xCA1D3D369Ac056A8857572B1437Ee2E43D6c73bF", "0xEBE8Fc0E1B84714Cc85C72C3E6EBb037247AEAA1"], 2, owner]);
   await beaconFactory.deployed();
   console.log("Beacon factory deployed to:", beaconFactory.address);
 
-  // create new vault
-  // const result = await beaconFactory.create(["0xCA1D3D369Ac056A8857572B1437Ee2E43D6c73bF", "0xd1A6A0F87Ec5845842B42e9845Cea2f054E9a719"], 2, 0);
-  // let receipt = await result.wait();
-  // const event = receipt.events?.filter((x) => {return x.event == "VaultCreated"})[0];
-  // console.log("New vault deployed to:", event.args[0]);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
