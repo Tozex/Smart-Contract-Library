@@ -298,7 +298,15 @@ contract ICOMultisig is Pausable {
     uint256 ratio = _tt == TokenType.TOZ ? tozRatio : usdcRatio;
     uint256 decimal = _tt == TokenType.TOZ ? 18 : usdcDecimal;
 
-    uint256 _amountToSend = _amount.mul(ratio / 10000).mul(10 ** (tokenDecimal - decimal));
+    uint256 _amountToSend = _amount.mul(ratio).div(10000);
+
+    // Calculate the adjustment factor based on tokenDecimal and decimal
+    if (tokenDecimal >= decimal) {
+        _amountToSend = _amountToSend.mul(10 ** (tokenDecimal - decimal)); // Scale up
+    } else {
+        _amountToSend = _amountToSend.div(10 ** (decimal - tokenDecimal)); // Scale down
+    }
+
     return _amountToSend;
   }
 
