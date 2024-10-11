@@ -201,6 +201,15 @@ contract ICOMultisig is Pausable {
     usdcRatio = _usdcRatio;
   }
 
+  function updateTokenDecimal(uint256  _tokenDecimal) external onlyTozex {
+    tokenDecimal = _tokenDecimal;
+  }
+
+  // Update the usdc ICO rate
+  function updateUsdcDecimal(uint256 _usdcDecimal) external onlyTozex {
+    usdcDecimal = _usdcDecimal;
+  }
+
   // Update the token ICO SOFT CAP
   function updateIcoSoftCap(uint256 _icoSoftCap) external onlyTozex  {
     icoSoftCap = _icoSoftCap;
@@ -306,7 +315,7 @@ contract ICOMultisig is Pausable {
     } else {
         _amountToSend = _amountToSend.div(10 ** (decimal - tokenDecimal)); // Scale down
     }
-
+    
     return _amountToSend;
   }
 
